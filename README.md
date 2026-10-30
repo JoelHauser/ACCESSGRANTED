@@ -38,8 +38,8 @@ Press **Ctrl+F9** in the main menu to watch the terminal over a pretend load. Wh
 ## Building
 
 ```powershell
-scripts\pack.ps1 -SPTPath H:\SPT4.1.X           # build and pack dist\StartupProgress-<version>.zip
-scripts\pack.ps1 -SPTPath H:\SPT4.1.X -Install  # also copy the DLL into the install
+scripts\pack.ps1 -SPTPath C:\SPT           # build and pack dist\StartupProgress-<version>.zip
+scripts\pack.ps1 -SPTPath C:\SPT -Install  # also copy the DLL into the install
 ```
 
 The SPT install must have been started through the SPT Launcher once, so its Assembly-CSharp is the patched one.
