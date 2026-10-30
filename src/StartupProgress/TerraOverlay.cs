@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using EFT.UI;
 using EFT.UI.Screens;
@@ -9,10 +10,9 @@ using UnityEngine.UI;
 namespace StartupProgress
 {
     /// <summary>
-    /// A full-screen TerraGroup terminal over the game's whole launch: it switches on like a CRT
-    /// in place of the game's splash, then shows an emblem that assembles
-    /// itself inside turning rings and a progress ring, the wordmark, a segment per load step, the
-    /// running step typed out, and a log of the finished ones.
+    /// A full-screen TerraGroup terminal over the game's whole launch: it comes up in place of the
+    /// game's splash, then shows an emblem inside a frame and a progress ring, the wordmark, a bar
+    /// with a segment per load step, the running step typed out, and a log of the finished ones.
     ///
     /// It lives on its own top-level canvas rather than inside the game's screen, because the game
     /// switches that screen off two steps before the menu is ready. The overlay carries on through
@@ -20,11 +20,15 @@ namespace StartupProgress
     /// over the live menu (it never takes input, so the menu is usable during the fade).
     ///
     /// The canvas has no scaler, so one unit is one screen pixel: shapes get a one-pixel soft edge
-    /// and the grid and scanlines land exactly on pixels. Everything that moves is a transform or
-    /// an alpha; text is rewritten only when what it shows changes. All motion follows the clock,
-    /// so a hitch in the game's own loading skips frames instead of slowing the animation.
+    /// and the patterns land exactly on pixels. Everything that moves is a transform or an alpha;
+    /// text is rewritten only when what it shows changes. All motion follows the clock, so a
+    /// hitch in the game's own loading skips frames instead of slowing the animation.
+    ///
+    /// Each launch is one TerraGroup division (<see cref="Theme"/>), with its own backdrop, frame,
+    /// intro, bar and ending (TerraOverlay.Style.cs), and the terminal glitches now and then
+    /// (TerraOverlay.Glitch.cs).
     /// </summary>
-    internal class TerraOverlay : MonoBehaviour
+    internal partial class TerraOverlay : MonoBehaviour
     {
         private enum Phase
         {
@@ -33,19 +37,19 @@ namespace StartupProgress
             Granted
         }
 
-        // TerraGroup blues.
-        private static readonly Color32 Ink = new Color32(2, 6, 16, 255);
-        private static readonly Color32 Glow = new Color32(18, 64, 160, 255);
-        private static readonly Color32 Blue = new Color32(47, 107, 255, 255);
-        private static readonly Color32 MidBlue = new Color32(38, 86, 205, 255);
-        private static readonly Color32 Cyan = new Color32(111, 211, 255, 255);
-        private static readonly Color32 Text = new Color32(207, 233, 255, 255);
-        private static readonly Color32 Dim = new Color32(95, 134, 184, 255);
-        private static readonly Color32 Faint = new Color32(95, 134, 184, 60);
+        // The launch's palette; see Theme.
+        private Color32 Ink => _variant.Theme.Ink;
+        private Color32 Glow => _variant.Theme.Glow;
+        private Color32 Primary => _variant.Theme.Primary;
+        private Color32 Accent => _variant.Theme.Accent;
+        private Color32 Text => _variant.Theme.Text;
+        private Color32 Dim => _variant.Theme.Dim;
+        private Color32 Faint => _variant.Theme.Faint;
+        private Color32 Warn => _variant.Theme.Warn;
 
         private const int LogLines = 4;
         private const float TypeSpeed = 70f;
-        private const float GrantedHold = 0.55f;
+        private const float GrantedHold = 0.4f;
         private const float FadeTime = 0.7f;
 
         /// <summary>A frame quicker than this counts as smooth.</summary>
@@ -58,14 +62,21 @@ namespace StartupProgress
         /// <summary>If the game hides its screen and the menu never comes, give up after this long.</summary>
         private const float GiveUpAfter = 15f;
 
+        /// <summary>Over this far past its usual time, a step's readout turns to the warning colour.</summary>
+        private const float SlowAfter = 1.5f;
+
         private static TerraOverlay _instance;
+
+        private Variant _variant;
+        private System.Random _random;
+        private Chatter _chatterSource;
+        private string _grantText;
 
         private Phase _phase = Phase.Hidden;
         private ProfileLoadingScreen _screen;
         private TextMeshProUGUI _status;
         private bool _sawLoadingScreen;
         private float _screenGoneFor;
-        private float _begunAt;
         private float _introClock;
 
         /// <summary>
@@ -84,13 +95,25 @@ namespace StartupProgress
         private float _held;
         private int _smoothFrames;
 
+        private TMP_FontAsset _font;
+        private Material _material;
         private RectTransform _rect;
+        private RectTransform _content;
+        private CanvasGroup _contentGroup;
+
+        /// <summary>The logo and wordmark, in a layer of their own over the content, so an ending can keep them a moment longer.</summary>
+        private RectTransform _brand;
         private CanvasGroup _group;
         private Vector2 _laidOutSize;
         private float _u = 1f;
+        private float _barWidth;
+        private float _readoutX;
+        private float _readoutY;
 
+        private Image _background;
         private RawImage _glow;
         private RawImage _grid;
+        private Image _dropout;
         private RawImage _scanlines;
         private RawImage _band;
         private Shape _corners;
@@ -106,24 +129,28 @@ namespace StartupProgress
             new Vector2(-1f, -1f).normalized, new Vector2(1f, -1f).normalized
         };
         private RawImage _emblemGlow;
-        private Shape _ringDashes;
-        private Shape _ringArcs;
         private Shape _ringTrack;
         private Shape _ringProgress;
         private float _ringProgressDrawn = -1f;
 
         private TextMeshProUGUI _wordmark;
         private TextMeshProUGUI _wordmarkGhost;
+        private TextMeshProUGUI _wordmarkSplit;
         private TextMeshProUGUI _subtitle;
         private TextMeshProUGUI _stepCounter;
         private TextMeshProUGUI _percent;
         private Image[] _segments;
         private Image[] _segmentFills;
         private TextMeshProUGUI _currentLabel;
+        private TextMeshProUGUI _labelGhost;
+        private TextMeshProUGUI _labelSplit;
         private TextMeshProUGUI _currentTime;
         private TextMeshProUGUI _currentDetail;
         private TextMeshProUGUI _logLabels;
         private TextMeshProUGUI _logTimes;
+        private TextMeshProUGUI _chatter;
+        private float _chatterNextAt;
+        private float _chatterShownAt;
         private TextMeshProUGUI _topLeft;
         private TextMeshProUGUI _topRight;
         private TextMeshProUGUI _bottomLeft;
@@ -134,6 +161,7 @@ namespace StartupProgress
         private string _shownDetail;
         private float _stepShownAt;
         private int _shownStepTenths = -1;
+        private bool _slow;
         private int _shownElapsedTenths = -1;
         private int _shownPercent = -1;
         private float _shownFraction;
@@ -172,6 +200,11 @@ namespace StartupProgress
                 _instance.ApplyFont(status.font, status.fontSharedMaterial);
             }
 
+            if (_instance._previewing)
+            {
+                // The game is loading for real: the preview gives way.
+                _instance.Hide();
+            }
             if (_instance._phase == Phase.Loading)
             {
                 // A launch already under way from the splash: just take charge of the screen.
@@ -188,7 +221,11 @@ namespace StartupProgress
             var go = new GameObject("TerraGroupLoading", typeof(RectTransform), typeof(CanvasGroup));
             DontDestroyOnLoad(go);
             _instance = go.AddComponent<TerraOverlay>();
+            // Build colours from a palette; each run rolls its own anyway.
+            _instance.Roll();
+            var clock = System.Diagnostics.Stopwatch.StartNew();
             _instance.Build(font, material);
+            StartupProgressPlugin.Log.LogInfo($"Terminal built in {clock.Elapsed.TotalMilliseconds:0.0} ms.");
         }
 
         /// <summary>
@@ -223,6 +260,8 @@ namespace StartupProgress
             {
                 return;
             }
+            _font = font;
+            _material = material;
             foreach (TextMeshProUGUI text in GetComponentsInChildren<TextMeshProUGUI>(true))
             {
                 if (text.font != font)
@@ -231,6 +270,8 @@ namespace StartupProgress
                     text.fontSharedMaterial = material;
                 }
             }
+            // The ticker's length depends on the font.
+            _laidOutSize = Vector2.zero;
         }
 
         /// <summary>The game is showing an error: get out of its way at once.</summary>
@@ -246,6 +287,8 @@ namespace StartupProgress
         private void Build(TMP_FontAsset font, Material material)
         {
             _rect = (RectTransform)transform;
+            _font = font;
+            _material = material;
 
             // Top-level, over everything, one unit per pixel.
             var canvas = gameObject.AddComponent<Canvas>();
@@ -256,66 +299,201 @@ namespace StartupProgress
             _group.interactable = false;
             _group.alpha = 0f;
 
-            Stretch(MakeImage("Background", transform, Ink).rectTransform);
-            _glow = MakeRaw("Glow", transform, Art.Radial, Glow);
-            _grid = MakeRaw("Grid", transform, Art.Grid, new Color32(111, 211, 255, 16));
-            Stretch(_grid.rectTransform);
-            _corners = Shape.Create("Corners", transform);
+            // Everything but the intro's covers sits in one layer, so an ending can move or
+            // squash the whole picture at once.
+            _content = MakeRect("Content", transform);
+            Stretch(_content);
+            _contentGroup = _content.gameObject.AddComponent<CanvasGroup>();
+            _contentGroup.blocksRaycasts = false;
+            _contentGroup.interactable = false;
+            _brand = MakeRect("Brand", transform);
+            Stretch(_brand);
+            Transform c = _content;
+            Transform brand = _brand;
 
-            _emblem = MakeRect("Emblem", transform);
-            _emblemGlow = MakeRaw("EmblemGlow", _emblem, Art.Radial, Blue);
+            _background = MakeImage("Background", c, Ink);
+            Stretch(_background.rectTransform);
+            _glow = MakeRaw("Glow", c, Art.Radial, Glow);
+            _grid = MakeRaw("Backdrop", c, Art.Dots, Accent);
+            Stretch(_grid.rectTransform);
+            Isolate(_glow);
+            Isolate(_grid);
+            BuildBackdropExtras(c);
+            _corners = Shape.Create("Corners", c);
+
+            _emblem = MakeRect("Emblem", brand);
+            Isolate(_emblem);
+            _emblemGlow = MakeRaw("EmblemGlow", _emblem, Art.Radial, Primary);
+            _alertGlow = MakeRaw("AlertGlow", _emblem, Art.Radial, Warn);
             _ringTrack = Shape.Create("RingTrack", _emblem);
             _ringProgress = Shape.Create("RingProgress", _emblem);
-            _ringDashes = Shape.Create("RingDashes", _emblem);
-            _ringArcs = Shape.Create("RingArcs", _emblem);
+            for (int i = 0; i < _frameParts.Length; i++)
+            {
+                _frameParts[i] = Shape.Create("Frame" + i, _emblem);
+            }
             for (int i = 0; i < _pieces.Length; i++)
             {
                 _pieces[i] = Shape.Create("Piece" + i, _emblem);
             }
+            _recLabel = MakeText("Rec", _emblem, TextAlignmentOptions.Right, Warn);
+            _recLabel.text = "REC";
 
-            _wordmarkGhost = MakeText("WordmarkGhost", font, material, TextAlignmentOptions.Center, Cyan);
-            _wordmark = MakeText("Wordmark", font, material, TextAlignmentOptions.Center, Text);
-            _wordmark.text = _wordmarkGhost.text = "TERRAGROUP";
-            _subtitle = MakeText("Subtitle", font, material, TextAlignmentOptions.Center, Cyan);
-            _subtitle.text = "LABS  //  PROFILE SYNCHRONIZATION";
+            // The RGB split's two copies sit behind the wordmark, hidden until a glitch.
+            _wordmarkSplit = MakeText("WordmarkSplit", brand, TextAlignmentOptions.Center, Text);
+            _wordmarkGhost = MakeText("WordmarkGhost", brand, TextAlignmentOptions.Center, Text);
+            _wordmark = MakeText("Wordmark", brand, TextAlignmentOptions.Center, Text);
+            _wordmark.text = _wordmarkGhost.text = _wordmarkSplit.text = "TERRAGROUP";
+            _wordmarkGhost.enabled = _wordmarkSplit.enabled = false;
+            _subtitle = MakeText("Subtitle", c, TextAlignmentOptions.Center, Accent);
 
-            _stepCounter = MakeText("StepCounter", font, material, TextAlignmentOptions.Left, Dim);
-            _percent = MakeText("Percent", font, material, TextAlignmentOptions.Right, Dim);
+            // The readout changes several times a second (typing, timers, the running
+            // segment), so it gets a canvas of its own too.
+            RectTransform readout = MakeRect("Readout", c);
+            Stretch(readout);
+            Isolate(readout);
+            Transform r = readout;
+
+            _stepCounter = MakeText("StepCounter", r, TextAlignmentOptions.Left, Dim);
+            _percent = MakeText("Percent", r, TextAlignmentOptions.Right, Dim);
             _segments = new Image[StartupTracker.StepCount];
             _segmentFills = new Image[StartupTracker.StepCount];
             for (int i = 0; i < _segments.Length; i++)
             {
-                _segments[i] = MakeImage("Segment" + i, transform, Faint);
-                _segmentFills[i] = MakeImage("Fill", _segments[i].transform, Cyan);
+                _segments[i] = MakeImage("Segment" + i, r, Faint);
+                _segmentFills[i] = MakeImage("Fill", _segments[i].transform, Accent);
                 RectTransform fill = _segmentFills[i].rectTransform;
                 fill.anchorMin = Vector2.zero;
                 fill.anchorMax = new Vector2(0f, 1f);
                 fill.offsetMin = fill.offsetMax = Vector2.zero;
             }
+            BuildSolidBar(r);
 
-            _currentLabel = MakeText("CurrentLabel", font, material, TextAlignmentOptions.Left, Text);
-            _currentTime = MakeText("CurrentTime", font, material, TextAlignmentOptions.Right, Text);
-            _currentDetail = MakeText("CurrentDetail", font, material, TextAlignmentOptions.Left, Dim);
-            _logLabels = MakeText("LogLabels", font, material, TextAlignmentOptions.TopLeft, Dim);
-            _logTimes = MakeText("LogTimes", font, material, TextAlignmentOptions.TopRight, Dim);
+            _labelSplit = MakeText("LabelSplit", r, TextAlignmentOptions.Left, Text);
+            _labelGhost = MakeText("LabelGhost", r, TextAlignmentOptions.Left, Text);
+            _labelGhost.enabled = _labelSplit.enabled = false;
+            _currentLabel = MakeText("CurrentLabel", r, TextAlignmentOptions.Left, Text);
+            _currentTime = MakeText("CurrentTime", r, TextAlignmentOptions.Right, Text);
+            _currentDetail = MakeText("CurrentDetail", r, TextAlignmentOptions.Left, Dim);
+            _logLabels = MakeText("LogLabels", r, TextAlignmentOptions.TopLeft, Dim);
+            _logTimes = MakeText("LogTimes", r, TextAlignmentOptions.TopRight, Dim);
+            _chatter = MakeText("Chatter", r, TextAlignmentOptions.Left, Dim);
 
-            _topLeft = MakeText("TopLeft", font, material, TextAlignmentOptions.TopLeft, Dim);
-            _topLeft.text = "TERRAGROUP LABS  //  SECURE ACCESS TERMINAL";
-            _topRight = MakeText("TopRight", font, material, TextAlignmentOptions.TopRight, Dim);
-            _topRight.text = "NODE TG-04  //  " + Application.version;
-            _bottomLeft = MakeText("BottomLeft", font, material, TextAlignmentOptions.BottomLeft, Dim);
-            _bottomRight = MakeText("BottomRight", font, material, TextAlignmentOptions.BottomRight, Dim);
+            _topLeft = MakeText("TopLeft", c, TextAlignmentOptions.TopLeft, Dim);
+            _topRight = MakeText("TopRight", c, TextAlignmentOptions.TopRight, Dim);
+            _bottomLeft = MakeText("BottomLeft", r, TextAlignmentOptions.BottomLeft, Dim);
+            _bottomRight = MakeText("BottomRight", c, TextAlignmentOptions.BottomRight, Dim);
 
-            _scanlines = MakeRaw("Scanlines", transform, Art.Scanlines, new Color32(0, 0, 0, 70));
+            BuildTicker(c);
+            BuildMemo(c);
+
+            for (int b = 0; b < TearBands; b++)
+            {
+                _tearFills[b] = MakeImage("TearFill" + b, c, Accent);
+                _tearEdges[b * 2] = MakeImage("TearEdge" + b + "a", c, Accent);
+                _tearEdges[b * 2 + 1] = MakeImage("TearEdge" + b + "b", c, Accent);
+                _tearFills[b].gameObject.SetActive(false);
+                _tearEdges[b * 2].gameObject.SetActive(false);
+                _tearEdges[b * 2 + 1].gameObject.SetActive(false);
+            }
+            _dropout = MakeImage("Dropout", c, Color.black);
+            Stretch(_dropout.rectTransform);
+            _dropout.gameObject.SetActive(false);
+
+            _scanlines = MakeRaw("Scanlines", c, Art.Scanlines, new Color32(0, 0, 0, 70));
             Stretch(_scanlines.rectTransform);
-            _band = MakeRaw("Band", transform, Art.Band, new Color32(111, 211, 255, 10));
+            _band = MakeRaw("Band", c, Art.Band, Accent);
+            Isolate(_band);
 
-            // The power-on: two black shutters that part from a bright line across the middle.
+            // The intro's covers, over the content.
             _shutterTop = MakeImage("ShutterTop", transform, Color.black).rectTransform;
             _shutterBottom = MakeImage("ShutterBottom", transform, Color.black).rectTransform;
-            _powerLine = MakeImage("PowerLine", transform, new Color32(200, 240, 255, 255));
+            _powerLine = MakeImage("PowerLine", transform, Color.white);
+            _introTitle = MakeText("IntroTitle", transform, TextAlignmentOptions.Center, Text);
+            _introTitle.text = "TERRAGROUP";
+            _introSub = MakeText("IntroSub", transform, TextAlignmentOptions.Center, Accent);
+            _flash = MakeImage("Flash", transform, Color.white);
+            Stretch(_flash.rectTransform);
+            _flash.gameObject.SetActive(false);
+            BuildCaption();
+
+            // What a tear can shove sideways: everything in the middle column.
+            var tearables = new List<RectTransform>
+            {
+                _emblem, _wordmark.rectTransform, _subtitle.rectTransform, _stepCounter.rectTransform,
+                _percent.rectTransform, _currentLabel.rectTransform, _currentTime.rectTransform,
+                _currentDetail.rectTransform, _logLabels.rectTransform, _logTimes.rectTransform,
+                _chatter.rectTransform, _solidTrack.rectTransform
+            };
+            foreach (Image segment in _segments)
+            {
+                tearables.Add(segment.rectTransform);
+            }
+            _tearables = tearables.ToArray();
+            _tearBase = new Vector2[_tearables.Length];
+            _tearHalf = new float[_tearables.Length];
 
             gameObject.SetActive(false);
+        }
+
+        /// <summary>Rolls this launch's division, rings, header, ending and surprises.</summary>
+        private void Roll()
+        {
+            if (_random == null)
+            {
+                _random = new System.Random(Environment.TickCount);
+            }
+            // A preview brings its own roll, picked with the preview's keys.
+            _variant = _previewing && _previewVariant != null
+                ? _previewVariant
+                : Variant.Roll(_random, StartupProgressPlugin.Theme.Value, StartupProgressPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig());
+            _chatterSource = new Chatter(_random, _variant.Theme);
+        }
+
+        /// <summary>Recolours and retexts everything that is not rebuilt by <see cref="Layout"/>.</summary>
+        private void ApplyVariant()
+        {
+            Theme theme = _variant.Theme;
+            _background.color = Ink;
+            _glow.color = Glow;
+            _emblemGlow.color = Primary;
+            _alertGlow.color = Warn;
+            _wordmark.color = Text;
+            _wordmarkGhost.color = _labelGhost.color = Theme.WithAlpha(Accent, 180);
+            _wordmarkSplit.color = _labelSplit.color = Theme.WithAlpha(theme.Split, 150);
+            _subtitle.color = Accent;
+            _stepCounter.color = _percent.color = Dim;
+            _currentLabel.color = _currentTime.color = Text;
+            _currentDetail.color = _logLabels.color = _logTimes.color = Dim;
+            _chatter.color = Theme.WithAlpha(Dim, 170);
+            _topLeft.color = _topRight.color = _bottomLeft.color = _bottomRight.color = Dim;
+            foreach (Image fill in _segmentFills)
+            {
+                fill.color = Accent;
+            }
+            foreach (Image segment in _segments)
+            {
+                segment.color = Faint;
+            }
+            foreach (Image fill in _tearFills)
+            {
+                fill.color = Theme.WithAlpha(Accent, 14);
+            }
+            foreach (Image edge in _tearEdges)
+            {
+                edge.color = Theme.WithAlpha(Accent, 110);
+            }
+            _scanlines.gameObject.SetActive(theme.Scanlines);
+            _band.gameObject.SetActive(theme.Scanlines);
+            _band.color = Theme.WithAlpha(Accent, 10);
+            _topLeft.text = _variant.Header;
+            _topRight.text = _variant.TopRight;
+            _bootSubtitle = !(StartupTracker.Current >= (int)StepId.Connect);
+            _subtitle.text = theme.Division + (_bootSubtitle ? "  //  STARTING UP" : "  //  SIGNING IN");
+            ApplyStyle();
+            StartupProgressPlugin.Log.LogInfo(
+                $"Terminal: {theme.Id} ({_variant.Layout} layout, {_variant.Backdrop}, {_variant.Frame} frame, {_variant.Intro} intro, {_variant.Bar} bar, {_variant.Outro} ending), glitches {_variant.Glitches}, line '{_variant.GrantText}'"
+                + (_variant.FakeDenial ? ", fake denial" : string.Empty)
+                + (_variant.MemoAt >= 0f ? ", memo" : string.Empty) + ".");
         }
 
         private void StartLoading(ProfileLoadingScreen screen)
@@ -329,7 +507,6 @@ namespace StartupProgress
             _status = null;
             _sawLoadingScreen = false;
             _screenGoneFor = 0f;
-            _begunAt = Time.unscaledTime;
             _introClock = 0f;
             _phase = Phase.Loading;
 
@@ -340,11 +517,18 @@ namespace StartupProgress
             _shownPercent = -1;
             _shownFraction = 0f;
             _ringProgressDrawn = -1f;
+            _slow = false;
             _emblem.localScale = Vector3.one;
             _laidOutSize = Vector2.zero;
             _group.alpha = 0f;
+            ResetFx();
+            Roll();
+            ApplyVariant();
+            ResetStyle();
             _currentLabel.text = string.Empty;
             _logLabels.text = _logTimes.text = string.Empty;
+            _chatter.text = string.Empty;
+            _chatterNextAt = 0f;
 
             TakeScreen(screen);
             gameObject.SetActive(true);
@@ -368,6 +552,8 @@ namespace StartupProgress
 
         private void Hide()
         {
+            EndFx();
+            EndPreview();
             _phase = Phase.Hidden;
             if (_status != null)
             {
@@ -383,36 +569,61 @@ namespace StartupProgress
             // Close the run first: the times are how long it took to reach the menu.
             float elapsed = StartupTracker.Elapsed;
             StartupTracker.EndRun();
+            EndFx();
+            _ringKick = 0f;
             _phase = Phase.Granted;
             _grantedAt = realTime;
             _fading = false;
             _fadeProgress = 0f;
             _held = 0f;
             _smoothFrames = 0;
+            _revealAt = -1f;
+            _revealStage = 0;
             if (_status != null)
             {
                 _status.enabled = true;
             }
 
+            string nickname = StartupTracker.Nickname;
+            _grantText = _variant.Greet && !string.IsNullOrEmpty(nickname)
+                ? "WELCOME BACK, " + nickname.ToUpperInvariant()
+                : _variant.GrantText;
+
             int steps = StartupTracker.StepCount - StartupTracker.FirstStep;
             _stepCounter.text = $"STEP <mspace=0.62em>{steps:00}</mspace> / {steps:00}";
             _percent.text = "<mspace=0.62em>100</mspace>%";
-            _currentLabel.text = "> ACCESS GRANTED";
-            _currentLabel.color = Cyan;
-            _currentLabel.maxVisibleCharacters = 0;
-            _stepShownAt = _animClock;
+            // A run headed for a fake denial keeps everyone guessing until the menu settles.
+            if (_variant.FakeDenial)
+            {
+                ShowLabel("> VERIFYING CLEARANCE", Dim);
+            }
+            else
+            {
+                ShowLabel("> " + _grantText, Accent);
+            }
             _currentTime.text = string.Empty;
+            _currentTime.color = Text;
             _currentDetail.text = string.Empty;
+            _chatter.text = ":: HAVE A PRODUCTIVE DAY";
+            _chatter.maxVisibleCharacters = 0;
+            _chatterShownAt = _animClock;
             RebuildLog(StartupTracker.StepCount);
             for (int i = 0; i < _segments.Length; i++)
             {
-                _segments[i].color = Cyan;
                 _segmentFills[i].enabled = false;
             }
+            SetSegments(Accent);
             _bottomLeft.text = $"ELAPSED <mspace=0.62em>{elapsed:0.0}</mspace>s";
         }
 
         private void LateUpdate()
+        {
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            Tick();
+            StartupTracker.NoteTerminal((System.Diagnostics.Stopwatch.GetTimestamp() - start) / (float)System.Diagnostics.Stopwatch.Frequency);
+        }
+
+        private void Tick()
         {
             if (_phase == Phase.Hidden)
             {
@@ -438,32 +649,43 @@ namespace StartupProgress
             {
                 _laidOutSize = size;
                 _laidOutFirstStep = StartupTracker.FirstStep;
+                EndFx();
+                var clock = System.Diagnostics.Stopwatch.StartNew();
                 Layout(size);
+                StartupProgressPlugin.Log.LogInfo($"Terminal laid out ({_variant.Theme.Id}, {_layout}) in {clock.Elapsed.TotalMilliseconds:0.0} ms.");
             }
 
             // The intro runs on drawn frames, not the clock: the first seconds of a launch are full
             // of long frames, and a clock-timed intro would be over before anyone saw it.
             _introClock += _frameDt;
 
+            UpdateDynamics(t);
             AnimateBackdrop(t);
-            AnimatePowerOn();
-            AnimateEmblem(t, _introClock - PowerOnTime);
+            AnimateIntro();
+            AnimateEmblem(t, _introClock - IntroLength);
+            AnimateTicker();
+            AnimateMemo(t);
+            AnimateSheen(t);
+            AnimatePanels(t);
 
             if (_phase == Phase.Loading)
             {
-                _group.alpha = Mathf.Clamp01(_introClock * 8f);
+                _group.alpha = Mathf.Clamp01(_introClock * (_variant.Intro == IntroKind.Fade ? 3f : 8f));
                 UpdateProgress(StartupTracker.Fraction());
                 UpdateSteps(t);
+                UpdateChatter(t);
                 UpdateClock(StartupTracker.Elapsed);
+                PollItems(t);
+                UpdateFx(t);
+                AnimateOutro(0f);
             }
             else
             {
                 UpdateProgress(1f);
                 TypeOut(t);
+                TypeChatter(t);
                 float fade = AdvanceFade(real);
-                float ease = fade * fade * (3f - 2f * fade);
-                _group.alpha = 1f - ease;
-                _emblem.localScale = Vector3.one * (1f + 0.08f * ease);
+                AnimateOutro(fade);
                 if (fade >= 1f)
                 {
                     Hide();
@@ -475,26 +697,48 @@ namespace StartupProgress
         /// How far the fade-out has gone, 0 to 1. Not by the clock: the menu's first frames are a
         /// burst of work from the game and other mods that can freeze it for a second, and a
         /// clock-timed fade would finish inside that freeze and look like a hard cut. So ACCESS
-        /// GRANTED holds until frames come smoothly again, and the fade then moves only as far
-        /// per frame as a frame at 30 fps would take it.
+        /// GRANTED holds until frames come smoothly again, plays its closing sequence, and the
+        /// fade then moves only as far per frame as a frame at 30 fps would take it.
         /// </summary>
         private float AdvanceFade(float realTime)
         {
             float dt = Time.unscaledDeltaTime;
             if (!_fading)
             {
-                _smoothFrames = dt < SmoothFrame ? _smoothFrames + 1 : 0;
-                _held += Mathf.Min(dt, SmoothFrame);
-                bool settled = _smoothFrames >= SmoothFramesNeeded && _held >= GrantedHold;
-                if (settled || realTime - _grantedAt > MaxHold)
+                if (_revealAt < 0f)
                 {
+                    _smoothFrames = dt < SmoothFrame ? _smoothFrames + 1 : 0;
+                    _held += Mathf.Min(dt, SmoothFrame);
+                    bool settled = _smoothFrames >= SmoothFramesNeeded && _held >= GrantedHold;
+                    if (!settled && realTime - _grantedAt <= MaxHold)
+                    {
+                        UpdateFx(_animClock);
+                        return 0f;
+                    }
+                    _revealAt = _animClock;
+                    if (!settled)
+                    {
+                        // Never settled: no show, just leave.
+                        FinishReveal();
+                        _fading = true;
+                        _fadeProgress = 0f;
+                        return 0f;
+                    }
+                }
+
+                // A backstop in case the frames turn rough again partway through.
+                bool done = UpdateReveal(_animClock) || realTime - _grantedAt > MaxHold + 3f;
+                UpdateFx(_animClock);
+                if (done)
+                {
+                    FinishReveal();
                     _fading = true;
                     _fadeProgress = 0f;
                 }
                 return 0f;
             }
 
-            _fadeProgress += _frameDt / FadeTime;
+            _fadeProgress += _frameDt / OutroTime;
             return Mathf.Clamp01(_fadeProgress);
         }
 
@@ -505,6 +749,16 @@ namespace StartupProgress
             {
                 StartupTracker.EndRun();
                 Hide();
+                return;
+            }
+
+            if (StartupTracker.Preview)
+            {
+                // A preview has no game to watch: it ends when its pretend steps have run.
+                if (StartupTracker.PreviewTick())
+                {
+                    Grant(realTime);
+                }
                 return;
             }
 
@@ -570,63 +824,60 @@ namespace StartupProgress
             }
             _corners.Commit();
 
-            // Emblem: the TerraGroup diamond in four pieces, one of them only outlined.
-            _emblem.anchoredPosition = new Vector2(0f, Mathf.Round(175f * u));
+            PlanLayout(size, inset, out Vector2 brand, out float bs,
+                out float rx, out float ry, out float barWidth, out Vector2 log, out Vector2 chatter);
+
+            // Emblem: the TerraGroup diamond, four solid quarters, the bottom-right one with a
+            // light triangle set into it.
+            _brandScale = bs;
+            _emblem.anchoredPosition = new Vector2(Mathf.Round(brand.x), Mathf.Round(brand.y + 175f * u * bs));
             Place(_emblemGlow.rectTransform, 0f, 0f, 460f * u, 460f * u);
+            Place(_alertGlow.rectTransform, 0f, 0f, 520f * u, 520f * u);
             float r = 58f * u;
             float gap = 5f * u;
-            BuildPiece(_pieces[0], new Vector2(-r, 0f), new Vector2(0f, r), gap, Blue, false);
-            BuildPiece(_pieces[1], new Vector2(0f, r), new Vector2(r, 0f), gap, Cyan, false);
-            BuildPiece(_pieces[2], new Vector2(-r, 0f), new Vector2(0f, -r), gap, MidBlue, false);
-            BuildPiece(_pieces[3], new Vector2(r, 0f), new Vector2(0f, -r), gap, Cyan, true);
-
-            _ringDashes.Clear();
-            for (int i = 0; i < 48; i++)
+            for (int i = 0; i < _pieces.Length; i++)
             {
-                _ringDashes.Arc(96f * u, (i % 4 == 0 ? 7f : 3f) * u, i * 7.5f, 2.2f, new Color32(111, 211, 255, 130));
+                _pieces[i].Clear();
             }
-            _ringDashes.Commit();
-
-            _ringArcs.Clear();
-            for (int i = 0; i < 3; i++)
+            AddPiece(_pieces[0], new Vector2(-r, 0f), new Vector2(0f, r), gap, Primary, null);
+            AddPiece(_pieces[1], new Vector2(0f, r), new Vector2(r, 0f), gap, Primary, null);
+            AddPiece(_pieces[2], new Vector2(-r, 0f), new Vector2(0f, -r), gap, Primary, null);
+            AddPiece(_pieces[3], new Vector2(r, 0f), new Vector2(0f, -r), gap, Primary, Text);
+            for (int i = 0; i < _pieces.Length; i++)
             {
-                _ringArcs.Arc(110f * u, 2.5f * u, i * 120f + 10f, 70f, new Color32(47, 107, 255, 220));
+                _pieces[i].Commit();
             }
-            _ringArcs.Commit();
 
             _ringTrack.Clear();
-            _ringTrack.Arc(124f * u, 2f * u, 0f, 360f, new Color32(111, 211, 255, 32));
+            _ringTrack.Arc(124f * u, 2f * u, 0f, 360f, Theme.WithAlpha(Accent, 32));
             _ringTrack.Commit();
             _ringProgressDrawn = -1f;
 
-            SetText(_wordmark, 0f, -2f * u, 900f * u, 60f * u, 50f * u, 26f);
-            SetText(_wordmarkGhost, 0f, -2f * u, 900f * u, 60f * u, 50f * u, 26f);
-            SetText(_subtitle, 0f, -42f * u, 900f * u, 24f * u, 15f * u, 10f);
+            float wordWidth = 900f * u * bs;
+            float wordY = brand.y - 2f * u * bs;
+            float subY = brand.y - 42f * u * bs;
+            SetText(_wordmark, brand.x, wordY, wordWidth, 60f * u * bs, 50f * u * bs, 26f);
+            SetText(_wordmarkGhost, brand.x, wordY, wordWidth, 60f * u * bs, 50f * u * bs, 26f);
+            SetText(_wordmarkSplit, brand.x, wordY, wordWidth, 60f * u * bs, 50f * u * bs, 26f);
+            SetText(_subtitle, brand.x, subY, wordWidth, 24f * u, 15f * u, 10f);
 
-            float barWidth = Mathf.Round(600f * u);
-            float barTop = -98f * u;
-            SetText(_stepCounter, -barWidth * 0.25f, barTop + 20f * u, barWidth * 0.5f, 18f * u, 13f * u, 8f);
-            SetText(_percent, barWidth * 0.25f, barTop + 20f * u, barWidth * 0.5f, 18f * u, 13f * u, 8f);
-            // One segment per step in this run; a run that started at Connect has no boot segments.
-            int first = StartupTracker.FirstStep;
-            int shown = _segments.Length - first;
-            float segmentGap = Mathf.Round((shown > 12 ? 4f : 6f) * u);
-            float segmentWidth = Mathf.Floor((barWidth - segmentGap * (shown - 1)) / shown);
-            float segmentHeight = Mathf.Max(3f, Mathf.Round(4f * u));
-            float rowWidth = segmentWidth * shown + segmentGap * (shown - 1);
-            for (int i = 0; i < _segments.Length; i++)
-            {
-                _segments[i].gameObject.SetActive(i >= first);
-                float x = -rowWidth * 0.5f + (i - first) * (segmentWidth + segmentGap) + segmentWidth * 0.5f;
-                Place(_segments[i].rectTransform, x, barTop, segmentWidth, segmentHeight);
-            }
+            barWidth = _barWidth = Mathf.Round(barWidth);
+            _readoutX = rx;
+            _readoutY = ry;
+            float barTop = ry - 98f * u;
+            SetText(_stepCounter, rx - barWidth * 0.25f, barTop + 20f * u, barWidth * 0.5f, 18f * u, 13f * u, 8f);
+            SetText(_percent, rx + barWidth * 0.25f, barTop + 20f * u, barWidth * 0.5f, 18f * u, 13f * u, 8f);
+            LayoutBar(rx, barWidth, barTop);
 
-            SetText(_currentLabel, -barWidth * 0.15f, -136f * u, barWidth * 0.7f, 30f * u, 21f * u, 4f);
-            SetText(_currentTime, barWidth * 0.35f, -136f * u, barWidth * 0.3f, 30f * u, 21f * u, 4f);
-            SetText(_currentDetail, 0f, -162f * u, barWidth, 20f * u, 13f * u, 6f);
-            SetText(_logLabels, -barWidth * 0.15f, -205f * u, barWidth * 0.7f, LogLines * 22f * u, 13f * u, 6f);
-            SetText(_logTimes, barWidth * 0.35f, -205f * u, barWidth * 0.3f, LogLines * 22f * u, 13f * u, 6f);
+            SetText(_currentLabel, rx - barWidth * 0.15f, ry - 136f * u, barWidth * 0.7f, 30f * u, 21f * u, 4f);
+            SetText(_labelGhost, rx - barWidth * 0.15f, ry - 136f * u, barWidth * 0.7f, 30f * u, 21f * u, 4f);
+            SetText(_labelSplit, rx - barWidth * 0.15f, ry - 136f * u, barWidth * 0.7f, 30f * u, 21f * u, 4f);
+            SetText(_currentTime, rx + barWidth * 0.35f, ry - 136f * u, barWidth * 0.3f, 30f * u, 21f * u, 4f);
+            SetText(_currentDetail, rx, ry - 162f * u, barWidth, 20f * u, 13f * u, 6f);
+            SetText(_logLabels, log.x - barWidth * 0.15f, log.y, barWidth * 0.7f, LogLines * 22f * u, 13f * u, 6f);
+            SetText(_logTimes, log.x + barWidth * 0.35f, log.y, barWidth * 0.3f, LogLines * 22f * u, 13f * u, 6f);
             _logLabels.lineSpacing = _logTimes.lineSpacing = 18f;
+            SetText(_chatter, chatter.x, chatter.y, barWidth, 18f * u, 12f * u, 6f);
 
             float textInset = inset + 16f * u;
             float halfW = size.x * 0.5f - textInset;
@@ -636,93 +887,40 @@ namespace StartupProgress
             SetText(_topRight, halfW - cornerWidth * 0.5f, halfH - 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomLeft, -halfW + cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomRight, halfW - cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
-            _bottomRight.text = StartupTracker.LastTotal > 0f
+            string lastSync = StartupTracker.LastTotal > 0f
                 ? $"LAST SYNC <mspace=0.62em>{StartupTracker.LastTotal:0.0}</mspace>s"
                 : "LAST SYNC  --";
+            _bottomRight.text = $"CLIENT {Application.version}  //  {lastSync}";
+
+            LayoutStyle(size, inset, halfH);
+            CaptureTearBase();
         }
 
-        private void BuildPiece(Shape piece, Vector2 a, Vector2 b, float gap, Color32 color, bool outline)
+        /// <summary>
+        /// One quarter of the diamond, the triangle centre-a-b pulled off the centre lines by the
+        /// gap, added to <paramref name="shape"/>. With <paramref name="window"/>, also the logo's
+        /// light triangle, measured off the real one: tucked into the corner at the diamond's
+        /// centre, a thin border along the two straight sides and a slightly thicker one along the
+        /// outer edge, about two thirds the size of the quarter.
+        /// </summary>
+        private static void AddPiece(Shape shape, Vector2 a, Vector2 b, float gap, Color32 color, Color32? window)
         {
-            // Each quarter of the diamond is the triangle centre-a-b, pulled off the centre lines
-            // by the gap.
             Vector2 shift = ((a + b) / 3f).normalized * gap;
             Vector2 c0 = shift;
             Vector2 c1 = a + shift;
             Vector2 c2 = b + shift;
-            piece.Clear();
-            if (outline)
+            shape.Tri(c0, c1, c2, color);
+            if (window.HasValue)
             {
-                // Three strokes, each inset by half its width so the outline fills the same
-                // triangle as its solid neighbours.
-                float w = Mathf.Max(2f, 3f * _u);
-                Vector2 centre = (c0 + c1 + c2) / 3f;
-                Vector2 i0 = Inset(c0, centre, w);
-                Vector2 i1 = Inset(c1, centre, w);
-                Vector2 i2 = Inset(c2, centre, w);
-                piece.Line(i0, i1, w, color);
-                piece.Line(i1, i2, w, color);
-                piece.Line(i2, i0, w, color);
+                float leg = Vector2.Distance(c0, c1);
+                Vector2 u1 = (c1 - c0) / leg;
+                Vector2 u2 = (c2 - c0) / leg;
+                float sideBorder = 0.09f * leg;
+                float outerBorder = 0.12f * leg;
+                float size = leg - outerBorder * Mathf.Sqrt(2f) - 2f * sideBorder;
+                Vector2 w0 = c0 + (u1 + u2) * sideBorder;
+                shape.Tri(w0, w0 + u1 * size, w0 + u2 * size, window.Value);
             }
-            else
-            {
-                piece.Tri(c0, c1, c2, color);
-            }
-            piece.Commit();
-        }
-
-        private static Vector2 Inset(Vector2 corner, Vector2 centre, float width)
-        {
-            Vector2 towards = centre - corner;
-            return corner + towards.normalized * Mathf.Min(width * 1.2f, towards.magnitude * 0.5f);
-        }
-
-        private const float PowerOnTime = 0.55f;
-
-        /// <summary>
-        /// A CRT switching on: a line flicks across the middle of a black screen, then the picture
-        /// opens out from it. Over in about half a second.
-        /// </summary>
-        private void AnimatePowerOn()
-        {
-            float clock = _introClock;
-            bool done = clock >= PowerOnTime + 0.1f;
-            if (_shutterTop.gameObject.activeSelf == done)
-            {
-                _shutterTop.gameObject.SetActive(!done);
-                _shutterBottom.gameObject.SetActive(!done);
-                _powerLine.gameObject.SetActive(!done);
-            }
-            if (done)
-            {
-                return;
-            }
-
-            float w = _laidOutSize.x;
-            float h = _laidOutSize.y;
-            float line = Mathf.Clamp01(clock / 0.18f);
-            float lineEase = 1f - Mathf.Pow(1f - line, 3f);
-            float open = Mathf.Clamp01((clock - 0.2f) / 0.35f);
-            float openEase = open * open * (3f - 2f * open);
-
-            float gap = Mathf.Round(h * 0.5f * openEase);
-            float shutter = h * 0.5f - gap + 2f;
-            Place(_shutterTop, 0f, gap + shutter * 0.5f - 1f, w + 4f, shutter);
-            Place(_shutterBottom, 0f, -(gap + shutter * 0.5f - 1f), w + 4f, shutter);
-
-            float thickness = Mathf.Max(2f, Mathf.Round(3f * _u));
-            Place(_powerLine.rectTransform, 0f, 0f, w * lineEase, thickness);
-            _powerLine.canvasRenderer.SetAlpha(1f - openEase);
-        }
-
-        private void AnimateBackdrop(float t)
-        {
-            // The grid drifts diagonally, slowly enough to read as depth rather than motion.
-            _grid.uvRect = new Rect(t * 0.012f, t * 0.02f, _laidOutSize.x / 64f, _laidOutSize.y / 64f);
-
-            // A faint bright band rolls down the screen every four seconds.
-            float sweep = (t / 4f) % 1f;
-            _band.rectTransform.anchoredPosition = new Vector2(0f, Mathf.Lerp(_laidOutSize.y * 0.6f, -_laidOutSize.y * 0.6f, sweep));
-            _glow.canvasRenderer.SetAlpha(0.75f + 0.1f * Mathf.Sin(t * 0.8f));
         }
 
         private void AnimateEmblem(float t, float elapsed)
@@ -736,18 +934,15 @@ namespace StartupProgress
                 _pieces[i].canvasRenderer.SetAlpha(ease);
             }
 
-            float rings = 1f - Mathf.Pow(1f - Mathf.Clamp01(elapsed / 0.9f), 3f);
-            _ringDashes.rectTransform.localEulerAngles = new Vector3(0f, 0f, -t * 14f);
-            _ringArcs.rectTransform.localEulerAngles = new Vector3(0f, 0f, t * 32f);
-            _ringDashes.canvasRenderer.SetAlpha(rings);
-            _ringArcs.canvasRenderer.SetAlpha(rings);
-            _emblemGlow.canvasRenderer.SetAlpha((0.22f + 0.08f * Mathf.Sin(t * 2.2f)) * rings);
-
-            // Every few seconds the wordmark glitches: a cyan ghost jumps sideways for a moment.
-            float cycle = t % 5.3f;
-            bool glitch = cycle < 0.12f || (cycle > 0.2f && cycle < 0.26f);
-            _wordmarkGhost.canvasRenderer.SetAlpha(glitch ? 0.7f : 0f);
-            _wordmarkGhost.rectTransform.anchoredPosition = new Vector2(Mathf.Round(glitch ? (cycle < 0.12f ? 6f : -4f) * _u : 0f), Mathf.Round(-2f * _u));
+            float frame = 1f - Mathf.Pow(1f - Mathf.Clamp01(elapsed / 0.9f), 3f);
+            AnimateFrame(t, frame);
+            float glow = 0.22f + 0.08f * Mathf.Sin(t * 2.2f) + 0.25f * _beat;
+            _emblemGlow.canvasRenderer.SetAlpha(glow * frame * Mathf.Lerp(0.6f, 1f, _mood));
+            _alertGlow.canvasRenderer.SetAlpha(_alert * (0.28f + 0.12f * Mathf.Sin(t * 5f)));
+            if (_phase == Phase.Loading)
+            {
+                _emblem.localScale = Vector3.one * (_brandScale * (1f + 0.035f * _beat));
+            }
         }
 
         private void UpdateProgress(float fraction)
@@ -763,9 +958,11 @@ namespace StartupProgress
             {
                 _ringProgressDrawn = _shownFraction;
                 _ringProgress.Clear();
-                _ringProgress.Arc(124f * _u, 3f * _u, 0f, 360f * _shownFraction, Cyan);
+                _ringProgress.Arc(124f * _u, 3f * _u, 0f, 360f * _shownFraction, Accent);
                 _ringProgress.Commit();
             }
+            UpdateSolidBar();
+            UpdateChart();
 
             if (_phase != Phase.Loading)
             {
@@ -788,24 +985,33 @@ namespace StartupProgress
             }
             if (current != _shownStep)
             {
+                bool first = _shownStep < 0;
                 _shownStep = current;
                 _stepShownAt = t;
                 _shownStepTenths = -1;
-                int first = StartupTracker.FirstStep;
-                _stepCounter.text = $"STEP <mspace=0.62em>{current - first + 1:00}</mspace> / {StartupTracker.StepCount - first:00}";
+                if (!first)
+                {
+                    Beat(t);
+                }
+                int firstStep = StartupTracker.FirstStep;
+                _stepCounter.text = $"STEP <mspace=0.62em>{current - firstStep + 1:00}</mspace> / {StartupTracker.StepCount - firstStep:00}";
                 bool boot = current < (int)StepId.Connect;
                 if (boot != _bootSubtitle)
                 {
                     _bootSubtitle = boot;
-                    _subtitle.text = boot ? "LABS  //  SYSTEM BOOT" : "LABS  //  PROFILE SYNCHRONIZATION";
+                    _subtitle.text = _variant.Theme.Division + (boot ? "  //  STARTING UP" : "  //  SIGNING IN");
                 }
                 _currentLabel.text = "> " + StartupTracker.Labels[current].ToUpperInvariant();
                 _currentLabel.color = Text;
                 _currentLabel.maxVisibleCharacters = 0;
                 RebuildLog(current);
+                _slow = false;
+                _currentTime.color = Text;
+                _solidFill.color = Accent;
                 for (int i = 0; i < _segments.Length; i++)
                 {
-                    _segments[i].color = i < current ? (Color)Cyan : (Color)Faint;
+                    _segments[i].color = i < current ? (Color)Accent : (Color)Faint;
+                    _segmentFills[i].color = Accent;
                     _segmentFills[i].rectTransform.anchorMax = new Vector2(0f, 1f);
                     _segmentFills[i].enabled = i == current;
                 }
@@ -820,17 +1026,69 @@ namespace StartupProgress
             _segmentFills[current].canvasRenderer.SetAlpha(0.65f + 0.35f * Mathf.Sin(t * 6f));
 
             string detail = StartupTracker.Detail(current);
-            if (detail != _shownDetail)
-            {
-                _shownDetail = detail;
-                _currentDetail.text = string.IsNullOrEmpty(detail) ? string.Empty : "  " + detail.ToUpperInvariant();
-            }
-
             int tenths = Mathf.FloorToInt(StartupTracker.StepElapsed * 10f);
+            bool detailChanged = detail != _shownDetail;
+            if (tenths == _shownStepTenths && !detailChanged)
+            {
+                return;
+            }
+            _shownDetail = detail;
             if (tenths != _shownStepTenths)
             {
                 _shownStepTenths = tenths;
                 _currentTime.text = $"<mspace=0.62em>{tenths / 10f:0.0}</mspace>s";
+            }
+
+            // Running well past this machine's usual time for the step: say so, in the warning
+            // colour. Only once a full launch has set the usual times; the defaults are guesses.
+            float expected = StartupTracker.ExpectedSeconds(current);
+            float over = StartupTracker.StepElapsed - expected;
+            bool slow = StartupTracker.HasBaseline && over > Mathf.Max(SlowAfter, expected * 0.5f);
+            bool wasSlow = _slow;
+            if (slow != _slow)
+            {
+                _slow = slow;
+                _currentTime.color = slow ? Warn : Text;
+                _segmentFills[current].color = slow ? Warn : Accent;
+                _solidFill.color = slow ? Warn : Accent;
+            }
+
+            string warnHex = _variant.Theme.WarnHex;
+            if (slow)
+            {
+                string late = $"{_variant.Theme.SlowNote}  +{over:0.0}S";
+                _currentDetail.text = string.IsNullOrEmpty(detail)
+                    ? $"  <color={warnHex}>{late}</color>"
+                    : $"  {detail.ToUpperInvariant()}   <color={warnHex}>{late}</color>";
+            }
+            else if (detailChanged || wasSlow)
+            {
+                _currentDetail.text = string.IsNullOrEmpty(detail) ? string.Empty : "  " + detail.ToUpperInvariant();
+            }
+        }
+
+        /// <summary>Every second or two a new line of made-up office chatter types itself out.</summary>
+        private void UpdateChatter(float t)
+        {
+            if (_introClock < IntroLength + 1f)
+            {
+                return;
+            }
+            if (t >= _chatterNextAt)
+            {
+                _chatter.text = _chatterSource.Next();
+                _chatter.maxVisibleCharacters = 0;
+                _chatterShownAt = t;
+                _chatterNextAt = t + Range(1.2f, 2.6f);
+            }
+            TypeChatter(t);
+        }
+
+        private void TypeChatter(float t)
+        {
+            if (_chatter.maxVisibleCharacters < _chatter.text.Length)
+            {
+                _chatter.maxVisibleCharacters = Mathf.FloorToInt((t - _chatterShownAt) * TypeSpeed) + 1;
             }
         }
 
@@ -859,7 +1117,8 @@ namespace StartupProgress
                 int alpha = 255 - lines * 50;
                 lines++;
                 string open = $"<alpha=#{alpha:X2}>";
-                _builder.Append(open).Append("<color=#6FD3FF>OK</color>   ").Append(StartupTracker.Labels[i].ToUpperInvariant());
+                _builder.Append(open).Append("<color=").Append(_variant.Theme.AccentHex).Append('>')
+                    .Append(_variant.Theme.LogTag).Append("</color>   ").Append(StartupTracker.Labels[i].ToUpperInvariant());
                 string detail = StartupTracker.Detail(i);
                 if (!string.IsNullOrEmpty(detail))
                 {
@@ -884,13 +1143,13 @@ namespace StartupProgress
             }
         }
 
-        private TextMeshProUGUI MakeText(string name, TMP_FontAsset font, Material material, TextAlignmentOptions alignment, Color32 color)
+        private TextMeshProUGUI MakeText(string name, Transform parent, TextAlignmentOptions alignment, Color32 color)
         {
             var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(transform, false);
+            go.transform.SetParent(parent, false);
             var text = go.AddComponent<TextMeshProUGUI>();
-            text.font = font;
-            text.fontSharedMaterial = material;
+            text.font = _font;
+            text.fontSharedMaterial = _material;
             text.alignment = alignment;
             text.color = color;
             text.enableWordWrapping = false;
@@ -919,6 +1178,16 @@ namespace StartupProgress
             image.color = color;
             image.raycastTarget = false;
             return image;
+        }
+
+        /// <summary>
+        /// Gives a part that moves or changes often a canvas of its own. Unity redraws a canvas's
+        /// whole batch when anything in it changes; isolated, a turning ring or a ticking timer
+        /// costs only its own redraw, not the whole screen's, every frame.
+        /// </summary>
+        private static void Isolate(Component part)
+        {
+            part.gameObject.AddComponent<Canvas>();
         }
 
         private static RectTransform MakeRect(string name, Transform parent)

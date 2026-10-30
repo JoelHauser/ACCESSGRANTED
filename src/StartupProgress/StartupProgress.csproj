@@ -9,7 +9,7 @@
     <Nullable>disable</Nullable>
 
     <!-- Must match StartupProgressPlugin.PluginVersion. -->
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
 
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -89,6 +89,12 @@
     </Reference>
     <Reference Include="UnityEngine.UIModule">
       <HintPath>$(GameManaged)\UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Decodes screenshots off the main thread; the game ships Mono's System.Drawing. -->
+    <Reference Include="System.Drawing" />
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameManaged)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">

@@ -144,6 +144,7 @@ namespace StartupProgress
                 if (profile?.Info != null)
                 {
                     StartupTracker.SetDetail(StepId.SelectProfile, $"{profile.Info.Nickname}, level {profile.Info.Level}");
+                    StartupTracker.Nickname = profile.Info.Nickname;
                 }
             }
             catch (Exception e)
@@ -158,11 +159,23 @@ namespace StartupProgress
         private static void World() => StartupTracker.Reach(StepId.World);
         private static void MainMenu() => StartupTracker.Reach(StepId.MainMenu);
 
-        private static void NoteItemCount()
+        private static int _itemCount;
+
+        /// <summary>
+        /// Puts the item count on the item database step. Also polled by the overlay while the
+        /// step runs, so the number climbs if the game fills the table as it goes; the text is
+        /// only rebuilt when the count moves.
+        /// </summary>
+        internal static void NoteItemCount()
         {
             if (Singleton<ItemFactory>.Instantiated && Singleton<ItemFactory>.Instance.ItemTemplates != null)
             {
-                StartupTracker.SetDetail(StepId.ItemDatabase, $"{Singleton<ItemFactory>.Instance.ItemTemplates.Count:N0} items");
+                int count = Singleton<ItemFactory>.Instance.ItemTemplates.Count;
+                if (count != _itemCount || StartupTracker.Detail((int)StepId.ItemDatabase) == null)
+                {
+                    _itemCount = count;
+                    StartupTracker.SetDetail(StepId.ItemDatabase, $"{count:N0} items");
+                }
             }
         }
     }

@@ -75,6 +75,12 @@ namespace StartupProgress
         private static int _stepFrames;
         private static int _stepLongFrames;
         private static float _stepWorstFrame;
+
+        // What drawing the terminal itself cost, per step and over the run, so the log can show
+        // it adds next to nothing to a launch.
+        private static float _stepTerminal;
+        private static float _runTerminal;
+        private static int _runFrames;
         private const float LongFrame = 0.05f;
 
         private static float _runStart;
@@ -90,6 +96,32 @@ namespace StartupProgress
         /// <summary>Total of the last launch that ran from the splash to the main menu, or 0 if none is known.</summary>
         internal static float LastTotal { get; private set; }
 
+        /// <summary>Launches from the splash so far, this one included.</summary>
+        internal static int Launches { get; private set; }
+
+        /// <summary>The selected profile's nickname, once the game has picked it; null before.</summary>
+        internal static string Nickname { get; set; }
+
+        /// <summary>True once a full launch has replaced the guessed step times with real ones.</summary>
+        internal static bool HasBaseline => LastTotal > 0f || Preview;
+
+        /// <summary>
+        /// A pretend run, started from the main menu to show the terminal: the steps advance on
+        /// a short schedule instead of the game's hooks, and nothing about it is saved.
+        /// </summary>
+        internal static bool Preview { get; private set; }
+
+        /// <summary>The preview's step times: the real ones squeezed into about ten seconds.</summary>
+        private static readonly float[] PreviewPlan = new float[Labels.Length];
+
+        /// <summary>What the preview treats as each step's usual time; one step is meant to run over it.</summary>
+        private static readonly float[] PreviewExpected = new float[Labels.Length];
+
+        private const float PreviewLength = 10f;
+        private const StepId PreviewSlowStep = StepId.WeaponBuilds;
+
+        private static float Usual(int step) => Preview ? PreviewExpected[step] : Expected[step];
+
         private static string TimingsPath =>
             // Qualified: Assembly-CSharp has a global Paths class of its own.
             Path.Combine(BepInEx.Paths.ConfigPath, StartupProgressPlugin.PluginGuid + ".timings.txt");
@@ -100,6 +132,7 @@ namespace StartupProgress
         internal static float StepElapsed => Active && Current >= 0 ? Now - _stepStart : 0f;
 
         internal static float TookSeconds(int step) => Took[step];
+        internal static float ExpectedSeconds(int step) => Usual(step);
         internal static bool WasSkipped(int step) => Skipped[step];
         internal static string Detail(int step) => Details[step];
 
@@ -107,23 +140,102 @@ namespace StartupProgress
         {
             if (Active)
             {
-                return;
+                if (!Preview)
+                {
+                    return;
+                }
+                // The game is loading for real: that beats a preview.
+                EndRun();
             }
 
+            Clear((int)first);
+            if (first == StepId.VerifyFiles)
+            {
+                Launches++;
+                SaveTimings();
+            }
+            Advance((int)first);
+        }
+
+        /// <summary>Starts a pretend run from the first step. Does nothing while a real one is going.</summary>
+        internal static bool BeginPreview()
+        {
+            if (Active && !Preview)
+            {
+                return false;
+            }
+            Active = false;
+
+            float total = 0f;
+            for (int i = 0; i < StepCount; i++)
+            {
+                total += Math.Max(Expected[i], 0.05f);
+            }
+            for (int i = 0; i < StepCount; i++)
+            {
+                PreviewPlan[i] = Math.Max(0.25f, Math.Max(Expected[i], 0.05f) * PreviewLength / total);
+                PreviewExpected[i] = PreviewPlan[i];
+            }
+            // One step overruns, so the slow-step warning shows too.
+            int slow = (int)PreviewSlowStep;
+            PreviewExpected[slow] = Math.Max(Expected[slow], 0.25f);
+            PreviewPlan[slow] = PreviewExpected[slow] + Math.Max(1.5f, PreviewExpected[slow] * 0.5f) + 1.2f;
+
+            Preview = true;
+            Clear(0);
+            Advance(0);
+            return true;
+        }
+
+        /// <summary>Moves the preview along. True once its last step has run its time.</summary>
+        internal static bool PreviewTick()
+        {
+            if (!Preview || !Active || Current < 0 || StepElapsed < PreviewPlan[Current])
+            {
+                return false;
+            }
+            if (Current == StepCount - 1)
+            {
+                return true;
+            }
+            int next = Current + 1;
+            Advance(next);
+            if (next == (int)StepId.ItemDatabase)
+            {
+                Details[next] = "16,412 items";
+            }
+            else if (next == (int)StepId.SelectProfile)
+            {
+                Details[next] = $"{(string.IsNullOrEmpty(Nickname) ? "Operator" : Nickname)}, level 42";
+            }
+            return false;
+        }
+
+        private static void Clear(int first)
+        {
             Array.Clear(Took, 0, Took.Length);
             Array.Clear(Skipped, 0, Skipped.Length);
             Array.Clear(Details, 0, Details.Length);
-            FirstStep = (int)first;
+            FirstStep = first;
             Current = FirstStep - 1;
             _shownFraction = 0f;
             _runStart = Now;
+            _runTerminal = 0f;
+            _runFrames = 0;
             Active = true;
-            Reach(first);
         }
 
         internal static void Reach(StepId id)
         {
-            int step = (int)id;
+            // A preview runs on its own schedule; the game calls some of these again in the menu.
+            if (!Preview)
+            {
+                Advance((int)id);
+            }
+        }
+
+        private static void Advance(int step)
+        {
             if (!Active || step <= Current)
             {
                 return;
@@ -143,11 +255,12 @@ namespace StartupProgress
             _stepFrames = 0;
             _stepLongFrames = 0;
             _stepWorstFrame = 0f;
+            _stepTerminal = 0f;
         }
 
         internal static void SetDetail(StepId id, string detail)
         {
-            if (Active)
+            if (Active && !Preview)
             {
                 Details[(int)id] = detail;
             }
@@ -161,6 +274,13 @@ namespace StartupProgress
             }
 
             float now = Now;
+            if (Preview)
+            {
+                // Nothing from a preview is kept: not its times, not the launch count.
+                Active = false;
+                Preview = false;
+                return;
+            }
             if (Current >= 0)
             {
                 FinishStep(now);
@@ -169,6 +289,8 @@ namespace StartupProgress
 
             float total = now - _runStart;
             StartupProgressPlugin.Log.LogInfo($"Loading took {total:0.00}s from '{Labels[FirstStep]}', reached '{Labels[Math.Max(Current, 0)]}'.");
+            StartupProgressPlugin.Log.LogInfo(
+                $"Terminal: {_runTerminal * 1000f:0} ms of its own work over {_runFrames} frames ({(_runFrames > 0 ? _runTerminal * 1000f / _runFrames : 0f):0.00} ms/frame).");
 
             // Only a run that reached the menu is a fair yardstick for the next one.
             if (Current == StepCount - 1)
@@ -203,7 +325,7 @@ namespace StartupProgress
             float done = 0f;
             for (int i = FirstStep; i < StepCount; i++)
             {
-                float expected = Math.Max(Expected[i], 0.05f);
+                float expected = Math.Max(Usual(i), 0.05f);
                 total += expected;
                 if (i < Current)
                 {
@@ -226,10 +348,22 @@ namespace StartupProgress
             {
                 return 0f;
             }
-            return Math.Min(StepElapsed / Math.Max(Expected[Current], 0.05f), 0.95f);
+            return Math.Min(StepElapsed / Math.Max(Usual(Current), 0.05f), 0.95f);
         }
 
         /// <summary>Called once per drawn frame while a run is going.</summary>
+        /// <summary>Time the terminal's own per-frame work took, in seconds.</summary>
+        internal static void NoteTerminal(float seconds)
+        {
+            if (!Active)
+            {
+                return;
+            }
+            _stepTerminal += seconds;
+            _runTerminal += seconds;
+            _runFrames++;
+        }
+
         internal static void NoteFrame(float seconds)
         {
             if (!Active)
@@ -247,8 +381,13 @@ namespace StartupProgress
         private static void FinishStep(float now)
         {
             Took[Current] = now - _stepStart;
+            if (Preview)
+            {
+                return;
+            }
             StartupProgressPlugin.Log.LogInfo(
-                $"{Labels[Current]}: {Took[Current]:0.00}s ({_stepFrames} frames, {_stepLongFrames} over {LongFrame * 1000f:0} ms, worst {_stepWorstFrame * 1000f:0} ms)");
+                $"{Labels[Current]}: {Took[Current]:0.00}s ({_stepFrames} frames, {_stepLongFrames} over {LongFrame * 1000f:0} ms, worst {_stepWorstFrame * 1000f:0} ms, "
+                + $"terminal {(_stepFrames > 0 ? _stepTerminal * 1000f / _stepFrames : 0f):0.00} ms/frame)");
         }
 
         internal static void LoadTimings()
@@ -272,6 +411,10 @@ namespace StartupProgress
                     {
                         LastTotal = seconds;
                     }
+                    else if (parts[0] == "Launches")
+                    {
+                        Launches = (int)seconds;
+                    }
                     else if (Enum.TryParse(parts[0], out StepId id))
                     {
                         Expected[(int)id] = seconds;
@@ -288,7 +431,11 @@ namespace StartupProgress
         {
             try
             {
-                var lines = new List<string> { "LaunchTotal=" + LastTotal.ToString("0.000", CultureInfo.InvariantCulture) };
+                var lines = new List<string>
+                {
+                    "LaunchTotal=" + LastTotal.ToString("0.000", CultureInfo.InvariantCulture),
+                    "Launches=" + Launches.ToString(CultureInfo.InvariantCulture)
+                };
                 for (int i = 0; i < StepCount; i++)
                 {
                     lines.Add((StepId)i + "=" + Expected[i].ToString("0.000", CultureInfo.InvariantCulture));

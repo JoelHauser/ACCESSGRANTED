@@ -42,6 +42,52 @@ namespace StartupProgress
             return s * s;
         }));
 
+        private static Texture2D _dots;
+        private static Texture2D _hex;
+        private static Texture2D _pinstripe;
+        private static Texture2D _ruled;
+
+        /// <summary>A two-pixel dot every 32 pixels: graph paper for the corporate screens.</summary>
+        internal static Texture2D Dots => _dots ?? (_dots = Make(32, 32, TextureWrapMode.Repeat, FilterMode.Point, (x, y) =>
+            x < 2 && y < 2 ? 1f : 0f));
+
+        /// <summary>
+        /// Flat-topped hexagon outlines, one pixel wide and soft-edged. The tile is 45 x 26: three
+        /// sides across, the height rounded to whole pixels, which squashes the cells by a hair.
+        /// </summary>
+        internal static Texture2D Hex => _hex ?? (_hex = Make(45, 26, TextureWrapMode.Repeat, FilterMode.Point, (x, y) =>
+        {
+            float px = x + 0.5f;
+            float py = y + 0.5f;
+            float nearest = float.MaxValue;
+            float[] cx = { 0f, 45f, 0f, 45f, 22.5f };
+            float[] cy = { 0f, 0f, 26f, 26f, 13f };
+            for (int i = 0; i < cx.Length; i++)
+            {
+                float dx = Mathf.Abs(px - cx[i]);
+                float dy = Mathf.Abs(py - cy[i]);
+                nearest = Mathf.Min(nearest, Mathf.Max(dy, dx * 0.866f + dy * 0.5f));
+            }
+            return Mathf.Clamp01(1.2f - Mathf.Abs(13f - nearest));
+        }));
+
+        /// <summary>A thin diagonal line every 16 pixels.</summary>
+        internal static Texture2D Pinstripe => _pinstripe ?? (_pinstripe = Make(16, 16, TextureWrapMode.Repeat, FilterMode.Point, (x, y) =>
+        {
+            int d = ((x - y) % 16 + 16) % 16;
+            return d == 0 ? 1f : d == 1 || d == 15 ? 0.3f : 0f;
+        }));
+
+        private static Texture2D _blueprint;
+
+        /// <summary>Drafting paper: a faint line every 32 pixels and a stronger one every 160.</summary>
+        internal static Texture2D Blueprint => _blueprint ?? (_blueprint = Make(160, 160, TextureWrapMode.Repeat, FilterMode.Point, (x, y) =>
+            x == 0 || y == 0 ? 1f : x % 32 == 0 || y % 32 == 0 ? 0.35f : 0f));
+
+        /// <summary>A ruled line every 36 pixels, like a ledger page.</summary>
+        internal static Texture2D Ruled => _ruled ?? (_ruled = Make(1, 36, TextureWrapMode.Repeat, FilterMode.Point, (x, y) =>
+            y == 0 ? 1f : 0f));
+
         /// <summary>Under half a step of 8-bit alpha, varying pixel to pixel.</summary>
         private static float Dither(int x, int y)
         {
