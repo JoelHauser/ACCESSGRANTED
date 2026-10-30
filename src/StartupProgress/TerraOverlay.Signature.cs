@@ -61,7 +61,9 @@ namespace StartupProgress
             // beside the readout are switched off as clutter; CreateSignature still builds them.
             _panelRoots[0].anchoredPosition = Vector2.zero;
             _panelRoots[0].localScale = Vector3.one;
-            _panels[0] = _variant.Theme.Id == ThemeChoice.Holiday ? new Snow() : CreateAmbient(_variant.Theme.Id);
+            // The ambient drawings keep to the space the centred layout leaves free of text.
+            _panels[0] = _variant.Theme.Id == ThemeChoice.Holiday ? new Snow()
+                : AmbientRoom ? CreateAmbient(_variant.Theme.Id) : null;
             _panels[0]?.Init(this, _panelRoots[0], _u, false);
         }
 

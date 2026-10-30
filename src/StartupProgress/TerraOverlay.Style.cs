@@ -360,7 +360,6 @@ namespace StartupProgress
                 Place(_panel.rectTransform, 0f, -205f * u, w + 4f, 230f * u);
                 Place(_panelEdge.rectTransform, 0f, -90f * u, w + 4f, edge);
             }
-            _watermark.gameObject.SetActive(_variant.Theme.Watermark && kind != LayoutKind.SplitMirror);
 
             // The memo hugs the top-right edge, under the corner text, in every layout.
             _memoWidth = Mathf.Min(380f * u, w * 0.5f - inset - 40f * u);
@@ -392,32 +391,43 @@ namespace StartupProgress
             // Records: a red margin line down the left of the ruled page.
             Place(_margin.rectTransform, -size.x * 0.32f, 0f, Mathf.Max(1f, Mathf.Round(u)), size.y);
 
-            // Corporate: the logo again, huge and faint, off to the right.
+            // Like the ambient drawings, these two keep to the space the centred layout leaves
+            // free of text: the zone left of the readout, and the strip under it.
+            bool room = AmbientRoom;
+            float zoneIn = 360f * u;
+            float zoneOut = size.x * 0.5f - 72f * u;
+            _watermark.gameObject.SetActive(theme.Watermark && room);
+            _chart.gameObject.SetActive(theme.Chart && room);
+            _chartHead.gameObject.SetActive(theme.Chart && room);
+
+            // Corporate: the logo again, large and faint, left of the terminal.
             _watermark.Clear();
-            if (theme.Watermark)
+            if (theme.Watermark && room)
             {
-                float r = size.y * 0.42f;
+                float r = Mathf.Min((zoneOut - zoneIn) * 0.42f, 300f * u);
                 Color32 tint = Theme.WithAlpha(Primary, 18);
                 AddPiece(_watermark, new Vector2(-r, 0f), new Vector2(0f, r), 14f * u, tint, null);
                 AddPiece(_watermark, new Vector2(0f, r), new Vector2(r, 0f), 14f * u, tint, null);
                 AddPiece(_watermark, new Vector2(-r, 0f), new Vector2(0f, -r), 14f * u, tint, null);
                 AddPiece(_watermark, new Vector2(r, 0f), new Vector2(0f, -r), 14f * u, tint, Theme.WithAlpha(Ink, 220));
-                _watermark.rectTransform.anchoredPosition = new Vector2(size.x * 0.5f - size.y * 0.3f, -size.y * 0.08f);
+                _watermark.rectTransform.anchoredPosition = new Vector2(-(zoneIn + zoneOut) * 0.5f, -2f * u);
             }
             _watermark.Commit();
 
-            // Finance: a share price that climbs with the load, across the lower half.
-            if (theme.Chart)
+            // Finance: a share price that climbs with the load, along the strip under the readout.
+            _chartPoints = null;
+            if (theme.Chart && room)
             {
                 var random = new System.Random(_variant.ChartSeed);
                 _chartPoints = new Vector2[ChartPoints];
-                float y = -0.33f * size.y;
+                float half = size.x * 0.5f - 118f * u;
+                float y = -398f;
                 for (int i = 0; i < ChartPoints; i++)
                 {
-                    float x = Mathf.Lerp(-0.46f, 0.46f, i / (ChartPoints - 1f)) * size.x;
-                    _chartPoints[i] = new Vector2(x, y);
-                    y += size.y * (0.008f + ((float)random.NextDouble() - 0.45f) * 0.05f);
-                    y = Mathf.Clamp(y, -0.42f * size.y, 0.05f * size.y);
+                    float x = Mathf.Lerp(-half, half, i / (ChartPoints - 1f));
+                    _chartPoints[i] = new Vector2(x, y * u);
+                    y += 1.6f + ((float)random.NextDouble() - 0.45f) * 12f;
+                    y = Mathf.Clamp(y, -400f, -330f);
                 }
                 _chartHead.Clear();
                 _chartHead.Disc(Vector2.zero, 4f * u, Theme.WithAlpha(Accent, 200));
@@ -727,7 +737,7 @@ namespace StartupProgress
                 return;
             }
             _chartDrawn = count;
-            float baseline = -0.45f * _laidOutSize.y;
+            float baseline = -408f * _u;
             float w = Mathf.Max(1.5f, 2f * _u);
             Color32 line = Theme.WithAlpha(Accent, 80);
             Color32 area = Theme.WithAlpha(Accent, 9);

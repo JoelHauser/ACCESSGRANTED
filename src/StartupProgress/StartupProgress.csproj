@@ -101,6 +101,15 @@
       <HintPath>$(GameManaged)\UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Decodes the Internal Affairs fingerprint picture. -->
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(GameManaged)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\fingerprint.png" LogicalName="StartupProgress.fingerprint.png" />
   </ItemGroup>
 
   <!-- Opt-in: dotnet build -c Release -p:DeployToSPT=true -->
