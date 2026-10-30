@@ -23,7 +23,7 @@ namespace StartupProgress
                 case ThemeChoice.Security: return new FloorPlan();
                 case ThemeChoice.Logistics: return new ShippingRoute();
                 case ThemeChoice.Records: return new RedactedText();
-                case ThemeChoice.Legal: return new SignatureLine();
+                case ThemeChoice.Legal: return new CompanySeal();
                 case ThemeChoice.Executive: return new QuarterlyBars();
                 case ThemeChoice.InternalAffairs: return new Fingerprint();
                 case ThemeChoice.ItDepartment: return new NetworkMap();
@@ -300,87 +300,75 @@ namespace StartupProgress
         }
 
         /// <summary>
-        /// Legal: the operator signing on the line. Their name (TerraGroup's, until the game
-        /// has picked a profile) writes itself letter by letter as the load goes, in large
-        /// slanted letters beside the X, and a flourish draws itself underneath.
+        /// Legal: the company seal, embossed faintly beside the terminal. Its outer ring presses
+        /// in round the circle as the load goes, and the lettering on its rim appears with it.
         /// </summary>
-        private sealed class SignatureLine : Ambient
+        private sealed class CompanySeal : Ambient
         {
-            private const int FlourishPoints = 60;
-            private readonly Vector2[] _flourish = new Vector2[FlourishPoints];
-            private TMPro.TextMeshProUGUI _name;
-            private Shape _underline;
-            private string _shownName;
-            private int _shownLetters = -1;
+            private const string Rim = "TERRAGROUP HOLDINGS  //  OFFICE OF GENERAL COUNSEL  //  ";
+            private const float Radius = 220f;
+            private Shape _ring;
+            private TMPro.TextMeshProUGUI[] _letters;
+            private float[] _angles;
             private int _drawn = -1;
+            private float _x;
+            private float _y;
 
             protected override void Build()
             {
-                float width = W * 0.6f;
-                float left = -width * 0.5f;
-                float line = -260f;
-                Shape rule = Draw();
-                rule.Line(P(left - 40f, line), P(-left + 40f, line), 1.5f * U, Soft);
-                rule.Line(P(left - 66f, line + 24f), P(left - 42f, line + 2f), 2f * U, Line);
-                rule.Line(P(left - 66f, line + 2f), P(left - 42f, line + 24f), 2f * U, Line);
-                rule.Commit();
-
-                _name = Label(string.Empty, 0f, line + 58f, width, 84f, A(T.Accent, 80), TMPro.TextAlignmentOptions.Center, null, 2f);
-                _name.fontStyle = TMPro.FontStyles.Italic;
-                // Long names shrink to fit the line instead of running off it. Sized on the whole
-                // name, so it stays the same size while the letters write themselves in.
-                _name.enableAutoSizing = true;
-                _name.fontSizeMax = Mathf.Round(84f * U);
-                _name.fontSizeMin = Mathf.Round(28f * U);
-                _name.overflowMode = TMPro.TextOverflowModes.Ellipsis;
-
-                // A flourish under the name: a long stroke with a loop at its end.
-                for (int i = 0; i < FlourishPoints; i++)
+                _x = W * 0.3f;
+                _y = -50f;
+                Shape seal = Draw(_x, _y);
+                seal.Arc((Radius + 26f) * U, 1.5f * U, 0f, 360f, Soft);
+                seal.Arc((Radius - 30f) * U, 2f * U, 0f, 360f, Soft);
+                seal.Arc((Radius - 40f) * U, 1f * U, 0f, 360f, Soft);
+                for (int i = 0; i < 72; i++)
                 {
-                    float s = i / (FlourishPoints - 1f);
-                    float x = Mathf.Lerp(left * 0.7f, -left * 0.75f, s);
-                    float y = line + 14f + Mathf.Sin(s * Mathf.PI) * 10f;
-                    if (s > 0.82f)
-                    {
-                        float a = (s - 0.82f) / 0.18f * Mathf.PI * 2f;
-                        x += Mathf.Sin(a) * 26f;
-                        y += (1f - Mathf.Cos(a)) * 14f;
-                    }
-                    _flourish[i] = P(x, y);
+                    seal.Line(Polar((Radius - 56f) * U, i * 5f), Polar((Radius - (i % 6 == 0 ? 70f : 62f)) * U, i * 5f), (i % 6 == 0 ? 2f : 1f) * U, Soft);
                 }
-                _underline = Draw();
+                float r = 70f * U;
+                float gap = 6f * U;
+                Color32 mark = A(T.Accent, 40);
+                AddPiece(seal, new Vector2(-r, 0f), new Vector2(0f, r), gap, mark, null);
+                AddPiece(seal, new Vector2(0f, r), new Vector2(r, 0f), gap, mark, null);
+                AddPiece(seal, new Vector2(-r, 0f), new Vector2(0f, -r), gap, mark, null);
+                AddPiece(seal, new Vector2(r, 0f), new Vector2(0f, -r), gap, mark, A(T.Ink, 200));
+                seal.Commit();
+                _ring = Draw(_x, _y);
+
+                // The rim lettering, one character at a time round the circle, upright to it.
+                _letters = new TMPro.TextMeshProUGUI[Rim.Length];
+                _angles = new float[Rim.Length];
+                for (int i = 0; i < Rim.Length; i++)
+                {
+                    float angle = i * 360f / Rim.Length;
+                    Vector2 at = Polar(Radius * U, angle);
+                    TMPro.TextMeshProUGUI letter = _letters[i] = Label(Rim[i].ToString(), 0f, 0f, 30f, 22f, A(T.Accent, 60), TMPro.TextAlignmentOptions.Center, null, 0f);
+                    letter.rectTransform.anchoredPosition = new Vector2(_x * U, _y * U) + at;
+                    letter.rectTransform.localEulerAngles = new Vector3(0f, 0f, -angle);
+                    letter.canvasRenderer.SetAlpha(0f);
+                    _angles[i] = angle;
+                }
             }
 
             internal override void Animate(float t)
             {
-                string nick = StartupTracker.Nickname;
-                string name = string.IsNullOrEmpty(nick) ? "TerraGroup" : nick;
-                if (name != _shownName)
+                int degrees = Mathf.FloorToInt(Progress * 360f);
+                if (degrees == _drawn)
                 {
-                    _shownName = name;
-                    _name.text = name;
-                    _shownLetters = -1;
+                    return;
                 }
-                // The name takes most of the load to write; the flourish finishes it.
-                int letters = Mathf.Clamp(Mathf.CeilToInt(Mathf.Clamp01(Progress / 0.85f) * name.Length), 0, name.Length);
-                if (letters != _shownLetters)
+                _drawn = degrees;
+                _ring.Clear();
+                _ring.Arc((Radius + 34f) * U, 4f * U, 0f, degrees, A(T.Accent, 60));
+                _ring.Commit();
+                for (int i = 0; i < _letters.Length; i++)
                 {
-                    _shownLetters = letters;
-                    _name.maxVisibleCharacters = letters;
-                }
-                int count = Mathf.Clamp(Mathf.FloorToInt((Progress - 0.85f) / 0.15f * FlourishPoints), 0, FlourishPoints);
-                if (count != _drawn)
-                {
-                    _drawn = count;
-                    _underline.Clear();
-                    for (int i = 0; i < count - 1; i++)
-                    {
-                        _underline.Line(_flourish[i], _flourish[i + 1], 2.5f * U, Line);
-                    }
-                    _underline.Commit();
+                    _letters[i].canvasRenderer.SetAlpha(_angles[i] <= degrees ? 1f : 0f);
                 }
             }
         }
+
 
         /// <summary>Executive: a quarterly bar chart, its bars rising with the load.</summary>
         private sealed class QuarterlyBars : Ambient
@@ -430,91 +418,92 @@ namespace StartupProgress
         }
 
         /// <summary>
-        /// Internal Affairs: a large fingerprint, a scan line passing over it. Drawn like a real
-        /// loop print: hairpin ridges round a core, wider ridges sweeping round those, flatter
-        /// ridges across the base, all inside the fingertip's outline, with the odd ridge ending.
+        /// Internal Affairs: a large fingerprint, a scan line passing over it. The ridges are the
+        /// contour lines of one smooth height field (a gentle slope with a rise at the core), so
+        /// like real ridges they never cross: closed whorls at the core, arches sweeping over it,
+        /// all inside the fingertip's outline and fading toward its edge.
         /// </summary>
         private sealed class Fingerprint : Ambient
         {
             private const float Rx = 165f;
             private const float Ry = 220f;
+            private const float Spacing = 10f;
+            private const float Cell = 5f;
             private Image _scan;
             private float _x;
-            private Shape _print;
 
             protected override void Build()
             {
                 _x = W * 0.3f;
                 float cy = -60f;
-                _print = Draw(_x, cy);
-                float spacing = 11f;
-                Vector2 core = new Vector2(-6f, 46f);
+                Shape print = Draw(_x, cy);
 
-                // Hairpin loops round the core, their legs running down and to the left.
-                for (int i = 0; i < 22; i++)
+                int nx = Mathf.CeilToInt(2f * Rx / Cell) + 1;
+                int ny = Mathf.CeilToInt(2f * Ry / Cell) + 1;
+                var field = new float[nx, ny];
+                for (int i = 0; i < nx; i++)
                 {
-                    float r = 8f + i * spacing;
-                    float legs = 70f + i * 14f;
-                    var ridge = new List<Vector2>();
-                    for (float d = legs; d > 0f; d -= 5f)
+                    for (int j = 0; j < ny; j++)
                     {
-                        ridge.Add(core + new Vector2(-r - 0.42f * d - 0.0016f * d * d * (i * 0.2f), -d));
+                        field[i, j] = Height(-Rx + i * Cell, -Ry + j * Cell);
                     }
-                    for (int s = 0; s <= 36; s++)
-                    {
-                        float a = Mathf.PI - s * Mathf.PI / 36f;
-                        ridge.Add(core + new Vector2(Mathf.Cos(a) * r, Mathf.Sin(a) * r * 1.15f));
-                    }
-                    for (float d = 5f; d <= legs; d += 5f)
-                    {
-                        ridge.Add(core + new Vector2(r - 0.22f * d + 0.0012f * d * d * (i * 0.25f), -d));
-                    }
-                    Ridge(ridge);
                 }
 
-                // Flatter ridges across the base, bowing up gently to the right.
-                for (float y = -70f; y > -Ry; y -= spacing)
+                // Marching squares: in each cell, a segment for every ridge level crossing it.
+                for (int i = 0; i < nx - 1; i++)
                 {
-                    var ridge = new List<Vector2>();
-                    for (float x = -Rx; x <= Rx; x += 6f)
+                    for (int j = 0; j < ny - 1; j++)
                     {
-                        ridge.Add(new Vector2(x, y + 0.12f * x + 10f * Mathf.Sin(x * 0.012f + y * 0.03f) + (y + Ry) * 0.04f * Mathf.Cos(x * 0.008f)));
+                        float x0 = -Rx + i * Cell;
+                        float y0 = -Ry + j * Cell;
+                        float a = field[i, j], b = field[i + 1, j], c = field[i + 1, j + 1], d = field[i, j + 1];
+                        float low = Mathf.Min(Mathf.Min(a, b), Mathf.Min(c, d));
+                        float high = Mathf.Max(Mathf.Max(a, b), Mathf.Max(c, d));
+                        for (float level = Mathf.Ceil(low / Spacing) * Spacing; level <= high; level += Spacing)
+                        {
+                            var hits = new List<Vector2>(4);
+                            Cross(hits, a, b, level, new Vector2(x0, y0), new Vector2(x0 + Cell, y0));
+                            Cross(hits, b, c, level, new Vector2(x0 + Cell, y0), new Vector2(x0 + Cell, y0 + Cell));
+                            Cross(hits, c, d, level, new Vector2(x0 + Cell, y0 + Cell), new Vector2(x0, y0 + Cell));
+                            Cross(hits, d, a, level, new Vector2(x0, y0 + Cell), new Vector2(x0, y0));
+                            for (int h = 0; h + 1 < hits.Count; h += 2)
+                            {
+                                Segment(print, hits[h], hits[h + 1]);
+                            }
+                        }
                     }
-                    Ridge(ridge);
                 }
-                _print.Commit();
-                _print.rectTransform.localEulerAngles = new Vector3(0f, 0f, -8f);
+                print.Commit();
+                print.rectTransform.localEulerAngles = new Vector3(0f, 0f, -8f);
                 _scan = Box(_x, cy, 400f, 3f, A(T.Accent, 60));
             }
 
-            /// <summary>Draws a ridge, clipped to the fingertip and broken now and then.</summary>
-            private void Ridge(List<Vector2> points)
+            /// <summary>The field the ridges follow: a slope, a rise at the core, a faint ripple.</summary>
+            private static float Height(float x, float y)
             {
-                int gap = 0;
-                for (int i = 1; i < points.Count; i++)
+                float dx = x - 4f;
+                float dy = y - 40f;
+                float core = 210f * Mathf.Exp(-(dx * dx / (2f * 60f * 60f) + dy * dy / (2f * 80f * 80f)));
+                return y + 0.14f * x + core + 2.5f * Mathf.Sin(x * 0.03f + y * 0.017f);
+            }
+
+            private static void Cross(List<Vector2> hits, float va, float vb, float level, Vector2 pa, Vector2 pb)
+            {
+                if ((va < level) != (vb < level))
                 {
-                    Vector2 a = points[i - 1];
-                    Vector2 b = points[i];
-                    if (gap > 0)
-                    {
-                        gap--;
-                        continue;
-                    }
-                    if (Rng.NextDouble() < 0.012)
-                    {
-                        gap = Rng.Next(2, 4);
-                        continue;
-                    }
-                    float ea = a.x * a.x / (Rx * Rx) + a.y * a.y / (Ry * Ry);
-                    float eb = b.x * b.x / (Rx * Rx) + b.y * b.y / (Ry * Ry);
-                    if (ea > 1f || eb > 1f)
-                    {
-                        continue;
-                    }
-                    // Fainter towards the edge of the finger, like a real print.
-                    byte alpha = (byte)Mathf.Lerp(46f, 14f, Mathf.Max(ea, eb));
-                    _print.Line(P(a.x, a.y), P(b.x, b.y), 2.2f * U, A(T.Accent, alpha));
+                    hits.Add(Vector2.Lerp(pa, pb, (level - va) / (vb - va)));
                 }
+            }
+
+            private void Segment(Shape print, Vector2 a, Vector2 b)
+            {
+                float e = Mathf.Max(a.x * a.x / (Rx * Rx) + a.y * a.y / (Ry * Ry), b.x * b.x / (Rx * Rx) + b.y * b.y / (Ry * Ry));
+                if (e > 1f || Rng.NextDouble() < 0.02)
+                {
+                    return;
+                }
+                byte alpha = (byte)Mathf.Lerp(48f, 10f, e * e);
+                print.Line(P(a.x, a.y), P(b.x, b.y), 2.4f * U, A(T.Accent, alpha));
             }
 
             internal override void Animate(float t)
