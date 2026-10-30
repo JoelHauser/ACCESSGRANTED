@@ -64,7 +64,7 @@ namespace StartupProgress
         private TextMeshProUGUI _memoTitle;
         private TextMeshProUGUI _memoBody;
         private float _memoShownAt = -1f;
-        private bool _memoDone;
+        private int _noticeIndex;
         private float _memoX;
         private float _memoOff;
 
@@ -135,6 +135,7 @@ namespace StartupProgress
             rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
             rect.pivot = new Vector2(0f, 0.5f);
             _tickerTop = MakeImage("TickerTop", c, Faint);
+
             _tickerBottom = MakeImage("TickerBottom", c, Faint);
         }
 
@@ -200,7 +201,7 @@ namespace StartupProgress
             _mood = StartupTracker.FirstStep >= (int)StepId.Connect ? 1f : 0f;
             _alert = 0f;
             _memoShownAt = -1f;
-            _memoDone = _variant.MemoAt < 0f;
+            _noticeIndex = 0;
             _memo.gameObject.SetActive(false);
             _sheenAt = -1f;
             _chartDrawn = -1;
@@ -282,37 +283,28 @@ namespace StartupProgress
             float panelWidth = 0f;
             float logX = 0f;
 
-            // The two cards (signature, session), in 1080p units at scale 1.
-            float cardW = PanelWidth * u;
-            float cardH = PanelHeight * u;
+            // The department's detail, in the space the layout leaves: beside the column, under
+            // the readout, in the open part of the sidebar layout, or in the dock's top corner.
+            const float DetailWidth = 340f;
+            const float DetailHeight = 320f;
             float scale;
-            Vector2 first;
-            Vector2 second;
+            Vector2 spot;
 
             switch (kind)
             {
                 case LayoutKind.Split:
                 case LayoutKind.SplitMirror:
                 {
-                    // Brand in one column; in the other, the readout with the two cards side by
-                    // side under it, as wide together as the bar.
                     float side = kind == LayoutKind.Split ? 1f : -1f;
-                    brand = new Vector2(-side * cw * 0.23f, -60f * u);
+                    brand = new Vector2(-side * cw * 0.23f, -90f * u);
                     rx = side * cw * 0.2f;
                     ry = 210f * u;
-                    float gap = 20f * u;
-                    scale = Mathf.Min((barWidth - gap) / (2f * cardW), 280f * u / cardH);
-                    float top = ry - 335f * u;
-                    float y = top - cardH * scale * 0.5f;
-                    float dx = (cardW * scale + gap) * 0.5f;
-                    first = new Vector2(rx - dx, y);
-                    second = new Vector2(rx + dx, y);
+                    scale = 0.9f;
+                    spot = new Vector2(rx, -262f * u);
                     break;
                 }
                 case LayoutKind.Sidebar:
                 {
-                    // A login-style panel down the left holds brand and readout; the two cards
-                    // sit side by side in the middle of the open space.
                     panelWidth = Mathf.Round(620f * u);
                     float centre = -w * 0.5f + panelWidth * 0.5f;
                     brand = new Vector2(centre, 200f * u);
@@ -320,46 +312,31 @@ namespace StartupProgress
                     rx = centre;
                     ry = 160f * u;
                     barWidth = panelWidth - 120f * u;
-                    float open = -w * 0.5f + panelWidth + (w - panelWidth - inset) * 0.5f;
-                    float gap = 30f * u;
-                    scale = Mathf.Min(1.15f, (w - panelWidth - inset - 80f * u - gap) / (2f * cardW));
-                    float dx = (cardW * scale + gap) * 0.5f;
-                    first = new Vector2(open - dx, -40f * u);
-                    second = new Vector2(open + dx, -40f * u);
+                    scale = Mathf.Min(1.2f, (w - panelWidth - inset - 60f * u) / (DetailWidth * u));
+                    spot = new Vector2(-w * 0.5f + panelWidth + (w - panelWidth - inset) * 0.5f, -50f * u);
                     break;
                 }
                 case LayoutKind.Dock:
                 {
-                    // A large brand up top, a card either side of it; the readout in a band
-                    // along the bottom with the log beside it. The right card stays under the
-                    // memo's corner.
                     brand = new Vector2(0f, 140f * u);
                     brandScale = 1.15f;
                     barWidth = Mathf.Min(600f * u, (w - 2f * inset - 120f * u) * 0.5f);
                     rx = -(barWidth * 0.5f + 40f * u);
                     logX = barWidth * 0.5f + 40f * u;
-                    scale = Mathf.Min(0.75f, (w * 0.5f - inset - 20f * u - 350f * u) / cardW);
-                    float x = w * 0.5f - inset - 20f * u - cardW * scale * 0.5f;
-                    float y = 320f * u - cardH * scale * 0.5f;
-                    first = new Vector2(-x, y);
-                    second = new Vector2(x, y);
+                    scale = Mathf.Min(1f, (w * 0.5f - inset - 20f * u - 340f * u) / (DetailWidth * u));
+                    spot = new Vector2(-(w * 0.5f - inset - 20f * u - DetailWidth * u * scale * 0.5f), 270f * u);
                     break;
                 }
                 default:
                 {
-                    // Centred column; a card either side of the readout, tops level with the bar.
-                    scale = Mathf.Min(1f, (w * 0.5f - inset - 350f * u) / cardW);
-                    float x = 350f * u + cardW * scale * 0.5f;
-                    float y = -80f * u - cardH * scale * 0.5f;
-                    first = new Vector2(-x, y);
-                    second = new Vector2(x, y);
+                    scale = Mathf.Min(1.1f, (w * 0.5f - inset - 340f * u) / (DetailWidth * u));
+                    spot = new Vector2(-(w * 0.5f - inset - 10f * u - DetailWidth * u * scale * 0.5f), -30f * u);
                     break;
                 }
             }
-            // Much smaller and they stop being readable: leave them out.
-            _panelScale = scale < 0.55f ? 0f : scale;
-            _panelSpots[0] = first;
-            _panelSpots[1] = second;
+            // Much smaller and it stops being readable: leave it out.
+            _panelScale = scale < 0.6f ? 0f : Mathf.Min(scale, h * 0.6f / (DetailHeight * u));
+            _panelSpots[0] = spot;
 
             // Under the current step's detail line, with room so the two never touch.
             log = new Vector2(rx, ry - 224f * u);
@@ -477,6 +454,7 @@ namespace StartupProgress
             }
 
             LayoutCaption(size);
+
             LayoutSignature();
 
             // The title card.
@@ -797,8 +775,10 @@ namespace StartupProgress
             Texture texture = _grid.texture;
             Vector2 drift = BackdropDrift(_variant.Backdrop) * (1f + 0.5f * _shownFraction);
             _backdropOffset += drift * _frameDt;
+            // Whole texels only: the patterns are point-sampled one texel per pixel, and a
+            // fractional offset made their thin lines shimmer (worst on the pinstripes).
             _grid.uvRect = new Rect(
-                _backdropOffset.x / texture.width, _backdropOffset.y / texture.height,
+                Mathf.Round(_backdropOffset.x) / texture.width, Mathf.Round(_backdropOffset.y) / texture.height,
                 _laidOutSize.x / texture.width, _laidOutSize.y / texture.height);
             _grid.canvasRenderer.SetAlpha(Mathf.Lerp(0.45f, 1f, _mood));
 
@@ -964,20 +944,29 @@ namespace StartupProgress
             _ticker.rectTransform.anchoredPosition = new Vector2(-Mathf.Round(_tickerOffset), 0f);
         }
 
-        /// <summary>Once in a while a memo slides in from the right, sits a few seconds, and leaves.</summary>
+        /// <summary>
+        /// The launch's notices, one at a time: each slides in from the right edge once the load
+        /// passes its point, sits a few seconds, and leaves. Memos carry the accent colour,
+        /// priority intel the warning colour, the odd unsigned note a dim one.
+        /// </summary>
         private void AnimateMemo(float t)
         {
-            if (!_memoDone && _memoShownAt < 0f && _phase == Phase.Loading && _memoOff > 0f
-                && _shownFraction >= _variant.MemoAt && _introClock > IntroLength + 1f)
+            Notice[] notices = _variant.Notices;
+            if (_memoShownAt < 0f && notices != null && _noticeIndex < notices.Length && _phase == Phase.Loading
+                && _memoOff > 0f && _shownFraction >= notices[_noticeIndex].At && _introClock > IntroLength + 1f)
             {
+                Notice notice = notices[_noticeIndex++];
                 _memoShownAt = t;
-                _memoTitle.text = "INTERNAL MEMO  //  " + _variant.MemoFrom;
-                string nickname = StartupTracker.Nickname;
-                _memoBody.text = _variant.MemoBody.Replace("{nick}", string.IsNullOrEmpty(nickname) ? "POSITION VACANT" : nickname.ToUpperInvariant());
+                Color32 tone = notice.Kind == NoticeKind.Intel ? Warn : notice.Kind == NoticeKind.Note ? Dim : Accent;
+                string kind = notice.Kind == NoticeKind.Intel ? "PRIORITY INTEL" : notice.Kind == NoticeKind.Note ? "MESSAGE" : "INTERNAL MEMO";
+                _memoTitle.text = kind + "  //  " + notice.From;
+                _memoTitle.color = tone;
+                _memoStripe.color = tone;
+                _memoBody.text = Lore.Fill(notice.Body, _random);
                 _memo.gameObject.SetActive(true);
                 FitMemo();
             }
-            if (_memoShownAt < 0f || _memoDone)
+            if (_memoShownAt < 0f)
             {
                 return;
             }
@@ -988,7 +977,7 @@ namespace StartupProgress
             _memo.anchoredPosition = new Vector2(Mathf.Round(_memoX + _memoOff * (1f - slide)), _memo.anchoredPosition.y);
             if (age >= MemoHold + MemoIn)
             {
-                _memoDone = true;
+                _memoShownAt = -1f;
                 _memo.gameObject.SetActive(false);
             }
         }
@@ -1001,7 +990,9 @@ namespace StartupProgress
             float emblemScale = 1f;
             float everything = 1f - ease;
             float rest = 1f;
-            switch (_variant.Outro)
+            // A scene has no separate logo layer to hold on, so its sting is a plain zoom.
+            OutroKind outro = _sceneActive && _variant.Outro == OutroKind.Sting ? OutroKind.Zoom : _variant.Outro;
+            switch (outro)
             {
                 case OutroKind.Lift:
                     // The picture slides up and away, like a security shutter going up.

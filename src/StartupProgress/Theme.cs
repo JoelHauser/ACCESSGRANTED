@@ -23,7 +23,6 @@ namespace StartupProgress
         Facilities,
         Legal,
         PublicRelations,
-        NightShift,
         Holiday
     }
 
@@ -113,6 +112,9 @@ namespace StartupProgress
         internal string[] Chatter;
         internal string[] Headlines;
 
+        /// <summary>The division's own internal memos; may hold Lore placeholders like {nick} or {boss}.</summary>
+        internal string[] Memos;
+
         private Theme(ThemeChoice id, string ink, string glow, string primary, string mid,
             string accent, string text, string dim, string warn, string split)
         {
@@ -143,7 +145,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP INTRANET  //  EMPLOYEE PORTAL", "TERRAGROUP  //  CORPORATE HEADQUARTERS", "TERRAGROUP  //  NORVINSK REGIONAL OFFICE" },
                 Grants = new[] { "WELCOME TO TERRAGROUP", "SIGN-IN SUCCESSFUL" },
                 Chatter = new[] { "MISSION STATEMENT  ACKNOWLEDGED", "ORG CHART  {n} POSITIONS VACANT", "TOWN HALL RECORDING  AVAILABLE", "BRAND GUIDELINES  REV {n}  APPLIED" },
-                Headlines = new[] { "TERRAGROUP NAMED REGION'S MOST TRUSTED EMPLOYER", "CEO ADDRESSES STAFF: 'THE FUTURE IS BRIGHT'" }
+                Headlines = new[] { "TERRAGROUP NAMED REGION'S MOST TRUSTED EMPLOYER", "CEO ADDRESSES STAFF: 'THE FUTURE IS BRIGHT'" },
+                Memos = new[] { "PER POLICY TG-COM-01, STAFF MAY NOT DISCUSS THE EVENTS OF 2017 WITH ANYONE OUTSIDE THE COMPANY, OR INSIDE IT.", "THE SITUATION IN NORVINSK IS TO BE DESCRIBED AS A 'TEMPORARY OPERATIONAL DISRUPTION' IN ALL CORRESPONDENCE.", "THE Q4 TOWN HALL IS POSTPONED UNTIL THE CAR PARK IS SECURE. A RECORDING WILL BE CIRCULATED.", "VISITING UN PERSONNEL ARE TO BE MET AT RECEPTION AND ESCORTED AT ALL TIMES. DO NOT ANSWER QUESTIONS.", "EFFECTIVE IMMEDIATELY, ALL TRAVEL OUT OF THE REGION REQUIRES BOARD APPROVAL. NO REQUESTS ARE BEING APPROVED.", "{faction} CONTRACTORS ARE NOT EMPLOYEES OF TERRAGROUP AND ARE NOT COVERED BY COMPANY POLICY. OR PROTECTION." }
             },
             new Theme(ThemeChoice.Research, "0C0305", "6A0A14", "D9283A", "A01E2C", "FF8A8A", "FFE8E8", "B47078", "FFC83C", "3CDCFF")
             {
@@ -155,7 +158,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP LABS  //  RESEARCH DIVISION", "LABS SUBNET B-14  //  RESTRICTED", "TERRAGROUP LABS  //  CLINICAL TRIALS OFFICE" },
                 Grants = new[] { "CLEARANCE CONFIRMED", "LAB ACCESS APPROVED" },
                 Chatter = new[] { "SPECIMEN REGISTRY  {n} ENTRIES", "CLEAN ROOM 4  PRESSURE NOMINAL", "TRIAL PROTOCOL 6-HELIX  ON SCHEDULE", "ETHICS REVIEW  WAIVED", "COLD STORAGE  -80C  STABLE", "SAMPLE CHAIN OF CUSTODY  SIGNED", "INCIDENT REPORT #{n}  REDACTED PER LEGAL" },
-                Headlines = new[] { "LABS EXPANSION AHEAD OF SCHEDULE", "TERRAGROUP TRIALS 'SHOWING PROMISE', SAYS TERRAGROUP" }
+                Headlines = new[] { "LABS EXPANSION AHEAD OF SCHEDULE", "TERRAGROUP TRIALS 'SHOWING PROMISE', SAYS TERRAGROUP" },
+                Memos = new[] { "SAMPLE BATCH 6-HELIX-B HAS NOT BEEN ACCOUNTED FOR. ANY STAFF WITH INFORMATION SHOULD REPORT TO LAB SECURITY.", "LEDX DEVICES ARE AUDITED DAILY UNDER POLICY TG-LAB-12. DISCREPANCIES WILL BE DEDUCTED FROM SALARY.", "FORMER STAFF MEMBER A. SANITAR IS NOT AUTHORISED TO ENTER ANY TERRAGROUP FACILITY. DO NOT ACCEPT HIS SAMPLES.", "TRIAL PARTICIPANTS ARE TO BE REFERRED TO BY CASE NUMBER ONLY. PERSONAL ATTACHMENT IS DISCOURAGED.", "LEVEL 2 AIR FILTRATION IS OVERDUE FOR SERVICE. RESPIRATORS ARE AVAILABLE FROM STORES ON REQUEST.", "THE ARENA FACILITY IS A CONTROLLED TESTING ENVIRONMENT. ATTENDANCE AS A SPECTATOR IS NOT PERMITTED." }
             },
             new Theme(ThemeChoice.Security, "0A0500", "6E3400", "FF8C14", "C8640A", "FFBE5A", "FFE2B4", "B0783C", "FF4632", "3CC8FF")
             {
@@ -168,7 +172,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP SECURITY  //  CHECKPOINT 3", "TERRAGROUP SECURITY  //  BADGE CONTROL", "PHYSICAL SECURITY  //  CCTV OPERATIONS" },
                 Grants = new[] { "BADGE ACCEPTED", "CHECKPOINT CLEARED" },
                 Chatter = new[] { "BADGE READER  GATE {n}  ONLINE", "CCTV  {n} CAMERAS RECORDING", "VISITOR LOG  {n} ENTRIES", "PATROL ROUTE B  CONFIRMED", "PERIMETER FENCE  NO ALERTS", "KEYCARD REGISTRY  {n} ACTIVE", "ARMORY INVENTORY  RECONCILED" },
-                Headlines = new[] { "SECURITY REMINDS STAFF: TAILGATING IS A FIREABLE OFFENSE", "NEW BADGE READERS INSTALLED AT ALL GATES" }
+                Headlines = new[] { "SECURITY REMINDS STAFF: TAILGATING IS A FIREABLE OFFENSE", "NEW BADGE READERS INSTALLED AT ALL GATES" },
+                Memos = new[] { "RAIDER UNITS OPERATE UNDER A SEPARATE CHAIN OF COMMAND. DO NOT ENGAGE, OBSTRUCT OR QUESTION THEM.", "GATE 3 LOGGED {nick} ENTERING TWICE AND LEAVING ONCE. PLEASE BADGE OUT AT EVERY EXIT.", "{boss} HAS BEEN REPORTED NEAR {bossplace}. ALL PATROL ROUTES THROUGH {bossmap} ARE SUSPENDED UNTIL FURTHER NOTICE.", "RED KEYCARD PRIVILEGES ARE UNDER REVIEW. HOLDERS SHOULD NOT ATTEMPT TO USE THEM UNTIL CONTACTED.", "STAFF FOUND SUPPLYING KEYCARDS TO THIRD PARTIES, INCLUDING FENCE, WILL BE REFERRED TO INTERNAL AFFAIRS.", "REMINDER: ALL AREAS OF THE LABORATORY ARE MONITORED. THIS INCLUDES THE AREAS STAFF BELIEVE ARE NOT." }
             },
             new Theme(ThemeChoice.Finance, "020805", "0A4A28", "2FB86A", "23905A", "8CF0B0", "DFFFEA", "6FA088", "FFB43C", "FF3CA0")
             {
@@ -181,7 +186,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP FINANCE  //  INVESTOR RELATIONS", "TERRAGROUP TREASURY  //  LEDGER ACCESS", "TERRAGROUP  //  QUARTERLY REPORTING" },
                 Grants = new[] { "ACCOUNT VERIFIED", "TRANSACTION APPROVED" },
                 Chatter = new[] { "LEDGER CLOSE  Q4  IN PROGRESS", "ESCROW  FLEA MARKET  SETTLED", "INSURANCE CLAIMS  {n} PENDING", "RUB/USD FEED  SYNCED", "AUDIT TRAIL  {n} TRANSACTIONS", "DIVIDEND SCHEDULE  POSTPONED", "OFFSHORE TRANSFER  APPROVED" },
-                Headlines = new[] { "TGRP HITS ALL-TIME HIGH ON LABS NEWS", "ANALYSTS: 'BUY', 'STRONG BUY', 'DO NOT ASK'" }
+                Headlines = new[] { "TGRP HITS ALL-TIME HIGH ON LABS NEWS", "ANALYSTS: 'BUY', 'STRONG BUY', 'DO NOT ASK'" },
+                Memos = new[] { "THE SERVER ROOM 2 BITCOIN FARM IS A COMPANY ASSET. PERSONAL DEVICES MUST NOT BE CONNECTED TO IT.", "FLEA MARKET TRANSACTIONS ARE NOT REIMBURSABLE AND MUST NOT BE MADE ON COMPANY ACCOUNTS.", "EXPENSE CLAIMS LISTING 'AMMUNITION, PERSONAL' NOW REQUIRE A SIGNED INCIDENT REPORT.", "PAYMENTS TO THE CONTRACTOR KNOWN AS PEACEKEEPER ARE TO BE SETTLED IN US DOLLARS ONLY, AS PER HIS TERMS.", "THE ROUBLE IS STABLE. STAFF ARE ASKED NOT TO CONVERT SALARIES INTO PHYSICAL GOODS.", "Q4 FIGURES ARE FINAL. ANY LOSSES IN THE NORVINSK REGION ARE TO BE BOOKED AS 'WEATHER'." }
             },
             new Theme(ThemeChoice.Records, "060607", "3C3C40", "AAAAAF", "78787D", "E1E1E6", "F0F0F0", "828287", "D23C3C", "3CA0FF")
             {
@@ -193,7 +199,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP RECORDS  //  ARCHIVE ACCESS", "RECORDS MANAGEMENT  //  BASEMENT LEVEL 2", "TERRAGROUP  //  DOCUMENT CONTROL" },
                 Grants = new[] { "FILE OPENED", "RECORD RETRIEVED" },
                 Chatter = new[] { "ARCHIVE BOX #{n}  RETRIEVED", "MICROFILM INDEX  REBUILT", "DOCUMENT 0x{hex}  CLASSIFIED", "RETENTION POLICY  APPLIED", "SHREDDING QUEUE  {n} PAGES", "CROSS-REFERENCING PERSONNEL FILES" },
-                Headlines = new[] { "RECORDS: ALL 2017 FILES 'LOST IN A FLOOD'", "DOCUMENT RETENTION POLICY SHORTENED TO 0 DAYS" }
+                Headlines = new[] { "RECORDS: ALL 2017 FILES 'LOST IN A FLOOD'", "DOCUMENT RETENTION POLICY SHORTENED TO 0 DAYS" },
+                Memos = new[] { "ALL DOCUMENTS REFERRING TO THE 2017 INCIDENT ARE TO BE RECLASSIFIED UNDER RETENTION CODE R-0. DO NOT READ THEM.", "INTELLIGENCE FOLDERS ARE COMPANY RECORDS. THEIR SALE TO TRADERS IS A BREACH OF POLICY TG-REC-04.", "THE ARCHIVE HAS BEEN RELOCATED. STAFF WITH A NEED TO KNOW THE LOCATION WILL BE INFORMED.", "THE PERSONNEL FILE FOR {nick} IS INCOMPLETE. PLEASE SUBMIT AN IDENTIFICATION PHOTO WITHOUT FACE COVERING.", "BOX 2017-C IS MISSING FROM BASEMENT LEVEL 2. IF LOCATED, SEAL IT AND CONTACT RECORDS. DO NOT OPEN IT.", "SHREDDING REQUESTS NOW REQUIRE TWO SIGNATURES. SHREDDING WITHOUT A REQUEST REQUIRES NONE." }
             },
             new Theme(ThemeChoice.Executive, "080602", "6E500A", "DCAA28", "AA7D19", "FFD76E", "FFF0C8", "AA915A", "FF5A3C", "5A8CFF")
             {
@@ -205,7 +212,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP  //  EXECUTIVE BOARD", "TERRAGROUP  //  OFFICE OF THE CHAIRMAN" },
                 Grants = new[] { "WELCOME TO THE BOARD", "EXECUTIVE ACCESS GRANTED" },
                 Chatter = new[] { "BOARD MINUTES  SEALED", "GOLDEN PARACHUTE  FUNDED", "PRIVATE JET  FUELED", "SHAREHOLDER LETTER  APPROVED", "KAPPA CONTAINER  REGISTERED", "COLLECTOR ITEMS  {n} CATALOGUED" },
-                Headlines = new[] { "BOARD APPROVES ITS OWN BONUSES", "CHAIRMAN'S YACHT 'NOT A COMPANY ASSET'" }
+                Headlines = new[] { "BOARD APPROVES ITS OWN BONUSES", "CHAIRMAN'S YACHT 'NOT A COMPANY ASSET'" },
+                Memos = new[] { "THE BOARD WILL CONVENE AT THE SHORELINE RESORT ON THURSDAY. SECURITY HAS DECLARED THE RESORT SAFE.", "EXECUTIVE EVACUATION ROUTES HAVE BEEN UPDATED. STAFF EVACUATION ROUTES ARE UNDER REVIEW.", "KAPPA-CLASS SECURE CONTAINERS ARE ISSUED BY INVITATION. THE COLLECTOR HAS ASKED TO BE REMEMBERED TO THE BOARD.", "THE BOARD HAS RESOLVED THAT TERRAGROUP BEARS NO RESPONSIBILITY FOR EVENTS IN NORVINSK. MOTION CARRIED UNANIMOUSLY.", "THE ANNUAL BONUS POOL HAS BEEN ALLOCATED IN FULL TO RETENTION OF THE BOARD.", "THE CHAIRMAN'S OFFICE IS CLOSED TO ALL STAFF. THIS INCLUDES THE CHAIRMAN'S STAFF." }
             },
             new Theme(ThemeChoice.InternalAffairs, "06020C", "461478", "9646FF", "6E32C8", "E678FF", "F0DCFF", "9678BE", "FFBE3C", "3CFFC8")
             {
@@ -217,7 +225,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP  //  INTERNAL AFFAIRS", "OFFICE OF COMPLIANCE  //  REVIEW BOARD" },
                 Grants = new[] { "ACCESS GRANTED... [MONITORED]", "SESSION LOGGED" },
                 Chatter = new[] { "SESSION FLAGGED FOR REVIEW", "KEYSTROKES  LOGGED", "INTERVIEW ROOM 2  RESERVED", "PERSONNEL FILE {emp}  OPENED", "ANOMALY SCORE  {pct}", "WITNESS STATEMENT #{n}  FILED" },
-                Headlines = new[] { "INTERNAL AFFAIRS: 'WE ARE ALWAYS LISTENING'", "WHISTLEBLOWER HOTLINE TEMPORARILY DISCONNECTED" }
+                Headlines = new[] { "INTERNAL AFFAIRS: 'WE ARE ALWAYS LISTENING'", "WHISTLEBLOWER HOTLINE TEMPORARILY DISCONNECTED" },
+                Memos = new[] { "{nick} WAS OBSERVED TRADING WITH THE INDIVIDUAL KNOWN AS FENCE. THIS HAS BEEN ADDED TO YOUR FILE.", "ALL {faction} PERSONNEL ARE REMINDED THAT FRIENDLY FIRE INCIDENTS ARE RECORDED AND REVIEWED.", "LEDX DEVICES CONTINUE TO GO MISSING FROM THE MEDICAL WING. WE KNOW WHO IS RESPONSIBLE. WE ARE GIVING YOU A CHANCE.", "AN ANONYMOUS REPORT PLACES THE MARKED ROOM KEY IN YOUR LOCKER. PLEASE REMAIN AT YOUR DESK.", "THIS DEPARTMENT'S HOTLINE IS CONFIDENTIAL. YOUR NAME IS ONLY RECORDED FOR QUALITY PURPOSES.", "STAFF UNDER REVIEW ARE ENTITLED TO REPRESENTATION. NONE IS CURRENTLY AVAILABLE." }
             },
             new Theme(ThemeChoice.Logistics, "020A0C", "0A4650", "1FA5B5", "17808C", "7FE3EE", "DDFAFF", "64A0A8", "FFB43C", "FF4A7A")
             {
@@ -229,7 +238,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP LOGISTICS  //  DISPATCH", "TERRAGROUP LOGISTICS  //  PORT OPERATIONS", "SUPPLY CHAIN  //  NORVINSK DEPOT" },
                 Grants = new[] { "DELIVERY CONFIRMED", "MANIFEST CLEARED" },
                 Chatter = new[] { "CONTAINER TG-{n}  SEALED", "MANIFEST #{n}  RECONCILED", "TRUCK CONVOY  DEPARTED", "WAREHOUSE B  {pct}% CAPACITY", "CUSTOMS FORMS  {n} PENDING", "FORKLIFT CERT  EXPIRED", "PALLETS  {n} UNACCOUNTED FOR" },
-                Headlines = new[] { "PORT TERMINAL BACKLOG 'SHRINKING'", "LOGISTICS: ALL SHIPMENTS ARRIVED, MOSTLY" }
+                Headlines = new[] { "PORT TERMINAL BACKLOG 'SHRINKING'", "LOGISTICS: ALL SHIPMENTS ARRIVED, MOSTLY" },
+                Memos = new[] { "THE AMMUNITION SHIPMENT FOR THE TRADER PRAPOR IS DELAYED AT CUSTOMS. HE HAS BEEN INFORMED AND IS UNHAPPY.", "A PEACEKEEPER CONVOY WILL PASS THROUGH CUSTOMS AT 12:00. THE ROAD IS TO BE KEPT CLEAR.", "THE BTR OPERATING IN THE CITY IS NOT A COMPANY VEHICLE. MILEAGE CLAIMS FOR IT WILL BE REJECTED.", "SEALED CONTAINERS AT THE PORT HAVE BEEN MOVED WITHOUT A WORK ORDER. DO NOT OPEN THEM. DO NOT FOLLOW THEM.", "AIRDROP SCHEDULES ARE CLASSIFIED. STAFF ARE ASKED NOT TO STAND IN OPEN GROUND AT PREDICTABLE TIMES.", "CARGO BELONGING TO THE CONTRACTOR JAEGER WAS DELIVERED TO THE WRONG DEPOT. RETURN IT BEFORE HE COLLECTS IT." }
             },
             new Theme(ThemeChoice.HumanResources, "0C0508", "5A2236", "E0607E", "B04A62", "FFB2C0", "FFEFF2", "B88894", "FFC850", "50D2FF")
             {
@@ -241,7 +251,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP HR  //  EMPLOYEE SERVICES", "HUMAN RESOURCES  //  ONBOARDING", "TERRAGROUP  //  PEOPLE AND CULTURE" },
                 Grants = new[] { "WELCOME TO THE TEAM", "ONBOARDING COMPLETE" },
                 Chatter = new[] { "WELLNESS SURVEY  {pct}% POSITIVE", "TRAINING MODULE {n}  ASSIGNED", "MANDATORY FUN  SCHEDULED", "BENEFITS ENROLLMENT  CLOSED", "EXIT INTERVIEWS  {n} PENDING", "TEAM LUNCH  POSTPONED AGAIN", "PERFORMANCE REVIEW  DUE" },
-                Headlines = new[] { "STAFF RETENTION 'STABLE', SAYS HR", "NEW OPEN-PLAN OFFICES 'BOOST MORALE'" }
+                Headlines = new[] { "STAFF RETENTION 'STABLE', SAYS HR", "NEW OPEN-PLAN OFFICES 'BOOST MORALE'" },
+                Memos = new[] { "WELCOME TO TERRAGROUP, {nick}. YOUR ONBOARDING IS COMPLETE. PLEASE COMPLETE YOUR NEXT-OF-KIN FORM TODAY.", "{faction} CONTRACTORS ARE NOT ELIGIBLE FOR THE COMPANY HEALTH PLAN, PENSION OR REPATRIATION.", "EXIT INTERVIEWS ARE MANDATORY FOR ALL DEPARTING STAFF. STAFF WISHING TO DEPART SHOULD SEE SECURITY FIRST.", "THE TEAM-BUILDING DAY HAS MOVED TO INTERCHANGE. BODY ARMOUR WILL BE PROVIDED. ATTENDANCE IS MANDATORY.", "THIS MONTH'S STAFF SURVEY RECORDED A 2% RISE IN MORALE. HR IS LOOKING INTO THE CAUSE.", "ANNUAL LEAVE IS SUSPENDED FOR ALL NORVINSK STAFF. THE ROAD OUT IS ALSO SUSPENDED." }
             },
             new Theme(ThemeChoice.ItDepartment, "04060A", "22304A", "5A7DB4", "46628E", "A8C4F0", "E6EEFA", "7888A4", "FF8C3C", "3CFFB4")
             {
@@ -253,7 +264,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP IT  //  SERVICE DESK", "TERRAGROUP IT  //  ENDPOINT MANAGEMENT", "IT DEPARTMENT  //  SERVER ROOM 2" },
                 Grants = new[] { "TICKET RESOLVED", "LOGIN SUCCESSFUL" },
                 Chatter = new[] { "TICKET #{n}  ESCALATED", "PASSWORD RESET  {n} REQUESTS", "PATCH TUESDAY  APPLIED", "BACKUP JOB  {pct}% COMPLETE", "PRINTER DRIVER  REINSTALLED", "DISK QUOTA  EXCEEDED", "PHISHING TEST  {n} CLICKED" },
-                Headlines = new[] { "IT: 'PLEASE STOP PLUGGING IN FOUND USB DRIVES'", "EMAIL OUTAGE BLAMED ON 'SOLAR ACTIVITY'" }
+                Headlines = new[] { "IT: 'PLEASE STOP PLUGGING IN FOUND USB DRIVES'", "EMAIL OUTAGE BLAMED ON 'SOLAR ACTIVITY'" },
+                Memos = new[] { "DO NOT CONNECT FOUND USB DEVICES TO COMPANY MACHINES. THIS INCLUDES DEVICES FOUND IN THE LAB.", "SERVER ROOM 2 IS RUNNING AT 41 DEGREES. STAFF ARE ASKED NOT TO PROP THE DOOR OPEN WITH FIRE EXTINGUISHERS.", "{pct}% OF STAFF CLICKED THIS MONTH'S PHISHING TEST. MANDATORY RETRAINING HAS BEEN SCHEDULED FOR THEM.", "TETRIZ CONSOLES ARE NOT APPROVED HARDWARE AND WILL BE CONFISCATED FROM DESKS.", "THE GUEST WIFI HAS BEEN SHUT DOWN AFTER IT WAS USED TO COORDINATE A RAID ON THE WAREHOUSE.", "PLANNED MAINTENANCE TONIGHT WILL TAKE THE LAB'S DOOR CONTROLS OFFLINE. PLEASE LEAVE BEFORE 22:00." }
             },
             new Theme(ThemeChoice.Medical, "020809", "0E4A4A", "2EC4B6", "22968C", "A0F5EC", "F0FFFD", "6EA8A2", "FF6A5A", "FF5AC8")
             {
@@ -265,7 +277,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP HEALTH  //  OCCUPATIONAL MEDICINE", "TERRAGROUP PHARMA  //  DISPENSARY", "STAFF CLINIC  //  NORVINSK CAMPUS" },
                 Grants = new[] { "FIT FOR DUTY", "HEALTH CHECK PASSED" },
                 Chatter = new[] { "VACCINATION RECORD  UPDATED", "BLOOD PANEL  {n} SAMPLES", "DISPENSARY STOCK  {pct}%", "SICK DAYS  {n} DENIED", "MEDKIT AUDIT  PASSED", "STIMULANT LOG  RECONCILED", "SIDE EFFECTS  WITHIN TOLERANCE" },
-                Headlines = new[] { "TERRAGROUP PHARMA LAUNCHES NEW 'WELLNESS' STIMULANT", "CLINIC HOURS EXTENDED FOR STAFF" }
+                Headlines = new[] { "TERRAGROUP PHARMA LAUNCHES NEW 'WELLNESS' STIMULANT", "CLINIC HOURS EXTENDED FOR STAFF" },
+                Memos = new[] { "THE TRADER KNOWN AS THERAPIST HAS ORDERED A FURTHER 40 SURGICAL KITS. THIS ORDER IS NOT TO BE FULFILLED.", "COMBAT STIMULANTS ARE PRESCRIPTION ONLY AND MAY NOT BE TAKEN TO MEET PERFORMANCE TARGETS.", "STAFF TREATED BY THE INDIVIDUAL KNOWN AS SANITAR MUST REPORT TO THE CLINIC FOR TESTING WITHIN 24 HOURS.", "SICK LEAVE IS SUSPENDED UNTIL FURTHER NOTICE. UNWELL STAFF SHOULD REPORT TO THEIR DESK AS NORMAL.", "PAINKILLER STOCKS ARE NOW ISSUED BY SIGNATURE ONLY, AFTER LAST MONTH'S AUDIT.", "THE BLOOD DRIVE CONTINUES ON THURSDAY. PARTICIPATION IS VOLUNTARY AND WILL BE RECORDED." }
             },
             new Theme(ThemeChoice.Facilities, "0A0903", "54460A", "F2C230", "BE961E", "FFE184", "FFF6D8", "AC9C64", "FF5A32", "4A8CFF")
             {
@@ -277,7 +290,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP FACILITIES  //  BUILDING SERVICES", "FACILITIES  //  PLANT ROOM", "TERRAGROUP  //  HEALTH AND SAFETY" },
                 Grants = new[] { "ALL SYSTEMS NOMINAL", "BUILDING OPEN" },
                 Chatter = new[] { "ELEVATOR 2  OUT OF SERVICE", "HVAC ZONE {n}  BALANCED", "FIRE DRILL  {n}:00", "KEY REQUEST #{n}  APPROVED", "GENERATOR TEST  PASSED", "WET FLOOR SIGNS  {n} DEPLOYED", "DAYS WITHOUT INCIDENT  0" },
-                Headlines = new[] { "FACILITIES: EAST WING PLUMBING 'MOSTLY FIXED'", "NEW SAFETY SIGNAGE INSTALLED CAMPUS-WIDE" }
+                Headlines = new[] { "FACILITIES: EAST WING PLUMBING 'MOSTLY FIXED'", "NEW SAFETY SIGNAGE INSTALLED CAMPUS-WIDE" },
+                Memos = new[] { "LIFT B REMAINS OUT OF SERVICE. A REPAIR DATE WILL BE CONFIRMED WHEN THE ENGINEER IS LOCATED.", "FUEL CANS STORED IN STAIRWELLS ARE A FIRE HAZARD AND WILL BE REMOVED. THEIR CONTENTS WILL BE REUSED.", "THE BUNKER GENERATOR IS FOR EMERGENCY USE ONLY AND MUST NOT BE CONNECTED TO PRIVATE PREMISES.", "DAMAGE TO THE LOBBY GLAZING IS SCHEDULED FOR REPAIR FOR THE FOURTH TIME THIS QUARTER.", "TAP WATER IN BUILDING C HAS PASSED ITS LATEST TEST. RESULTS FOR THE PREVIOUS TEST ARE NOT AVAILABLE.", "CEILING VOIDS ARE NOT STORAGE. ITEMS FOUND THERE WILL BE CONFISCATED BY FACILITIES." }
             },
             new Theme(ThemeChoice.Legal, "0C0405", "50141E", "B4323F", "8C2632", "E8C9A0", "FAF0E6", "A88C84", "FFB43C", "3CB4FF")
             {
@@ -289,7 +303,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP LEGAL  //  OFFICE OF GENERAL COUNSEL", "TERRAGROUP LEGAL  //  CONTRACTS", "LEGAL  //  LITIGATION SUPPORT" },
                 Grants = new[] { "TERMS ACCEPTED", "AGREEMENT EXECUTED" },
                 Chatter = new[] { "NDA #{n}  COUNTERSIGNED", "LITIGATION HOLD  EXTENDED", "SETTLEMENT  UNDISCLOSED", "CLAUSE {n}  AMENDED", "WAIVER  ON FILE", "DISCOVERY REQUEST  CONTESTED", "STATUTE OF LIMITATIONS  CHECKED" },
-                Headlines = new[] { "TERRAGROUP SETTLES CASE, ADMITS NOTHING", "LEGAL: 'THE INCIDENT' IS NOT TO BE DISCUSSED" }
+                Headlines = new[] { "TERRAGROUP SETTLES CASE, ADMITS NOTHING", "LEGAL: 'THE INCIDENT' IS NOT TO BE DISCUSSED" },
+                Memos = new[] { "TERRAGROUP HAS NO KNOWLEDGE OF THE EVENTS DESCRIBED IN RECENT PRESS REPORTS. THIS STATEMENT IS FINAL.", "THIS COMMUNICATION IS COVERED BY YOUR NON-DISCLOSURE AGREEMENT, AS IS ITS EXISTENCE.", "THE CONTRACT WITH THE INDIVIDUAL KNOWN AS PEACEKEEPER IS UNDER RENEGOTIATION. HE HAS REQUESTED BETTER TERMS.", "STAFF CALLED TO GIVE EVIDENCE SHOULD STATE THAT THEY DO NOT RECALL. LEGAL WILL SUPPLY THE WORDING.", "ALL INSURANCE CLAIMS PLACED THROUGH THE TRADER PRAPOR ARE FINAL AND MAY NOT BE CONTESTED.", "STAFF ARE ASKED NOT TO CONTACT LEGAL TO ASK WHETHER A COURSE OF ACTION IS LEGAL." }
             },
             new Theme(ThemeChoice.PublicRelations, "08040C", "4A1A5A", "C83CC8", "9A2E9A", "F7A8F0", "FFEFFF", "A884A8", "FFC03C", "3CFFD2")
             {
@@ -301,19 +316,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP COMMUNICATIONS  //  PRESS OFFICE", "TERRAGROUP  //  BRAND AND REPUTATION", "PUBLIC RELATIONS  //  MEDIA DESK" },
                 Grants = new[] { "MESSAGE APPROVED", "ON BRAND" },
                 Chatter = new[] { "PRESS RELEASE #{n}  DRAFTED", "SENTIMENT SCORE  {pct}", "JOURNALIST CALLS  {n} DECLINED", "TALKING POINTS  DISTRIBUTED", "SOCIAL POST  SCHEDULED", "NO COMMENT  ISSUED", "BRAND AUDIT  PASSED" },
-                Headlines = new[] { "TERRAGROUP WINS AWARD FOR TRANSPARENCY", "'WE CARE ABOUT NORVINSK', SAYS SPOKESPERSON" }
-            },
-            new Theme(ThemeChoice.NightShift, "020309", "141E46", "4652A0", "343E7A", "9AA6E6", "D6DCF6", "5E6694", "FFAA40", "FF4A7A")
-            {
-                DayWeight = 0, NightWeight = 12,
-                Backdrops = new[] { BackdropKind.Plain, BackdropKind.Dots }, Frames = new[] { FrameKind.Minimal, FrameKind.Orbit },
-                Intros = new[] { IntroKind.Fade }, Bars = new[] { BarKind.Thin }, Outros = new[] { OutroKind.Sting },
-                Division = "NIGHT SHIFT", TitleCard = "AFTER HOURS ACCESS", LogTag = "OK",
-                SlowNote = "THE BUILDING IS QUIET",
-                Headers = new[] { "TERRAGROUP  //  AFTER HOURS", "NIGHT SHIFT  //  SKELETON CREW" },
-                Grants = new[] { "WORKING LATE, OPERATOR?", "AFTER HOURS ACCESS GRANTED" },
-                Chatter = new[] { "LIGHTS  FLOOR {n}  OFF", "CLEANING CREW  ON SITE", "SECURITY ROUND  {n}  COMPLETE", "OVERTIME  LOGGED", "VENDING MACHINE  RESTOCKED", "PARKING LOT  {n} VEHICLES" },
-                Headlines = new[] { "OVERNIGHT: NOTHING TO REPORT", "NIGHT SHIFT ALLOWANCE UNDER REVIEW" }
+                Headlines = new[] { "TERRAGROUP WINS AWARD FOR TRANSPARENCY", "'WE CARE ABOUT NORVINSK', SAYS SPOKESPERSON" },
+                Memos = new[] { "THE APPROVED TERM FOR CURRENT EVENTS IN NORVINSK IS 'A LOCAL SECURITY MATTER'. PLEASE USE NO OTHER.", "JOURNALISTS ARE NOT TO BE ADMITTED TO ANY FACILITY. ANY JOURNALIST FOUND ON SITE SHOULD BE REPORTED TO SECURITY.", "IMAGES FROM THE ULTRA MALL INCIDENT ARE BEING REMOVED FROM SOCIAL MEDIA. DO NOT SHARE THEM, EVEN INTERNALLY.", "ARMED PERSONNEL IN THE LOBBY ARE TO BE DESCRIBED TO VISITORS AS 'CONSULTANTS'.", "OUR NEW CAMPAIGN, 'BUILDING A BETTER TOMORROW', HAS BEEN WITHDRAWN IN THE NORVINSK REGION.", "TERRAGROUP HAS MADE A DONATION TO THE CITY OF NORVINSK. THE AMOUNT AND RECIPIENT WILL NOT BE DISCLOSED." }
             },
             new Theme(ThemeChoice.Holiday, "03070C", "1A3A5A", "4FA0E0", "3A7FB8", "CDEBFF", "FFFFFF", "8AA8C0", "FF5A5A", "FF4A6A")
             {
@@ -324,7 +328,8 @@ namespace StartupProgress
                 Headers = new[] { "TERRAGROUP SOCIAL COMMITTEE  //  HOLIDAYS", "TERRAGROUP  //  YEAR-END CLOSE" },
                 Grants = new[] { "HAPPY HOLIDAYS, OPERATOR", "SEASON'S GREETINGS" },
                 Chatter = new[] { "HOLIDAY ROSTER  POSTED", "GIFT EXCHANGE  {n} PARTICIPANTS", "BONUSES  UNDER REVIEW", "SNOW PLOW  DISPATCHED", "TREE IN LOBBY  INSPECTED", "OFFICE CLOSED  31 DEC - 1 JAN" },
-                Headlines = new[] { "HOLIDAY PARTY CANCELLED. ATTENDANCE REMAINS MANDATORY", "YEAR-END BONUSES PAID IN COMPANY STOCK" }
+                Headlines = new[] { "HOLIDAY PARTY CANCELLED. ATTENDANCE REMAINS MANDATORY", "YEAR-END BONUSES PAID IN COMPANY STOCK" },
+                Memos = new[] { "THE HOLIDAY PARTY IS CANCELLED FOR SECURITY REASONS. ATTENDANCE REMAINS MANDATORY.", "SECRET SANTA GIFTS ARE LIMITED TO A VALUE OF ONE GRAPHICS CARD. GRENADES ARE NOT AN ACCEPTABLE GIFT.", "THE LOBBY TREE HAS BEEN DECORATED BY THE SECURITY TEAM. PLEASE DO NOT TOUCH THE DECORATIONS.", "A FIGURE IN A RED SUIT HAS BEEN SIGHTED ON LIGHTHOUSE. STAFF ARE ADVISED NOT TO APPROACH.", "THE OFFICE WILL CLOSE ON 25 DECEMBER. STAFF ON SITE WILL REMAIN ON SITE.", "THIS YEAR'S HOLIDAY BONUS HAS BEEN ISSUED AS A BOX OF MATCHES. THANK YOU FOR YOUR SERVICE." }
             }
         };
 
@@ -358,6 +363,22 @@ namespace StartupProgress
             Convert.ToByte(hex.Substring(2, 2), 16),
             Convert.ToByte(hex.Substring(4, 2), 16),
             255);
+    }
+
+    internal enum NoticeKind
+    {
+        Memo,
+        Intel,
+        Note
+    }
+
+    /// <summary>One notice that slides in during the load. Its body may hold Lore placeholders, filled as it shows.</summary>
+    internal sealed class Notice
+    {
+        internal float At;
+        internal NoticeKind Kind;
+        internal string From;
+        internal string Body;
     }
 
     /// <summary>
@@ -396,10 +417,8 @@ namespace StartupProgress
         internal bool Milestone;
         internal string Ticker;
 
-        /// <summary>A memo slides in once progress passes this, or never if negative.</summary>
-        internal float MemoAt = -1f;
-        internal string MemoFrom;
-        internal string MemoBody;
+        /// <summary>The notices that slide in during the load, in order: memos, intel, the odd note.</summary>
+        internal Notice[] Notices;
 
         private static readonly string[] CommonHeadlines =
         {
@@ -418,17 +437,17 @@ namespace StartupProgress
 
         private static readonly string[] Memos =
         {
-            "THE EAST WING IS CLOSED UNTIL FURTHER NOTICE. PLEASE DO NOT ASK WHY.",
-            "UNAUTHORIZED SAMPLES MAY NOT LEAVE THE LABORATORY. THIS INCLUDES LUNCH.",
-            "THE EVACUATION PLAN HAS BEEN UPDATED. PLEASE DO NOT USE THE OLD ONE.",
-            "PAYROLL IS DELAYED DUE TO CIRCUMSTANCES. THANK YOU FOR YOUR LOYALTY.",
-            "LOST: ONE BLUE KEYCARD. IF FOUND, DO NOT USE IT.",
-            "THE PORT IS CLOSED. THE PORT WILL REOPEN SOON. THE PORT IS FINE.",
-            "PLEASE STOP FEEDING THE SCAVS.",
-            "TEAM-BUILDING EXERCISE MOVED TO RESERVE BASE. BRING ARMOR.",
-            "A REMINDER THAT 'PASSWORD' IS NOT AN ACCEPTABLE PASSWORD.",
-            "EMPLOYEE OF THE MONTH: {nick}. CONGRATULATIONS.",
-            "COFFEE MACHINE ON FLOOR 3 IS FOR EXECUTIVES. YOU KNOW WHO YOU ARE."
+            "THE EAST WING IS CLOSED UNTIL FURTHER NOTICE. STAFF SHOULD NOT ASK WHY.",
+            "SAMPLES, DOCUMENTS AND EQUIPMENT MAY NOT LEAVE THE LABORATORY WITHOUT A SIGNED RELEASE.",
+            "THE EVACUATION PLAN HAS BEEN REVISED. THE PREVIOUS PLAN MUST NOT BE FOLLOWED UNDER ANY CIRCUMSTANCES.",
+            "PAYROLL IS DELAYED DUE TO CIRCUMSTANCES BEYOND OUR CONTROL. THANK YOU FOR YOUR CONTINUED LOYALTY.",
+            "A BLUE KEYCARD HAS BEEN REPORTED LOST. IF FOUND, HAND IT TO SECURITY. DO NOT USE IT.",
+            "THE PORT REMAINS CLOSED. A REOPENING DATE WILL BE ANNOUNCED IN DUE COURSE.",
+            "STAFF ARE REMINDED NOT TO FEED, TRADE WITH OR ENGAGE LOCAL SCAVENGERS.",
+            "PASSWORDS MUST NOW BE AT LEAST 12 CHARACTERS AND MAY NOT CONTAIN THE WORD 'TARKOV'.",
+            "CONGRATULATIONS TO {nick}, EMPLOYEE OF THE MONTH. YOUR PRIZE HAS BEEN PLACED IN YOUR STASH.",
+            "THE FLOOR 3 COFFEE MACHINE IS RESERVED FOR EXECUTIVE STAFF. USE IS LOGGED.",
+            "ALL STAFF MUST CARRY IDENTIFICATION AT ALL TIMES. UNIDENTIFIED PERSONS WILL BE TREATED AS HOSTILE."
         };
 
         private static readonly string[] MemoSenders = { "HUMAN RESOURCES", "FACILITIES", "LEGAL", "OFFICE OF THE CEO", "IT DEPARTMENT", "COMPLIANCE" };
@@ -511,13 +530,40 @@ namespace StartupProgress
 
             v.Ticker = BuildTicker(random, t);
 
-            if (preview || random.Next(4) == 0)
+            // Two or three notices a launch, spread over it: the division's memos, regional
+            // intel, and now and then something nobody admits to sending.
+            int count = preview ? 3 : random.Next(2, 4);
+            float[] at = { 0.12f, 0.4f, 0.68f };
+            v.Notices = new Notice[count];
+            for (int i = 0; i < count; i++)
             {
-                v.MemoAt = Range(random, 0.25f, 0.65f);
-                v.MemoFrom = MemoSenders[random.Next(MemoSenders.Length)];
-                v.MemoBody = t.Id == ThemeChoice.Holiday && random.Next(2) == 0
-                    ? "THE HOLIDAY PARTY IS CANCELLED. ATTENDANCE REMAINS MANDATORY."
-                    : Memos[random.Next(Memos.Length)];
+                var notice = new Notice { At = at[i] + Range(random, 0f, 0.08f) };
+                int roll = random.Next(100);
+                if (roll < 10)
+                {
+                    notice.Kind = NoticeKind.Note;
+                    notice.From = "UNKNOWN SENDER";
+                    notice.Body = Lore.EasterEgg(random);
+                }
+                else if (roll < 55)
+                {
+                    notice.Kind = NoticeKind.Intel;
+                    notice.From = Lore.IntelSender(random);
+                    notice.Body = Lore.IntelTemplate(random);
+                }
+                else if (random.Next(10) < 7)
+                {
+                    notice.Kind = NoticeKind.Memo;
+                    notice.From = t.Division;
+                    notice.Body = t.Memos[random.Next(t.Memos.Length)];
+                }
+                else
+                {
+                    notice.Kind = NoticeKind.Memo;
+                    notice.From = MemoSenders[random.Next(MemoSenders.Length)];
+                    notice.Body = Memos[random.Next(Memos.Length)];
+                }
+                v.Notices[i] = notice;
             }
             return v;
         }
@@ -527,6 +573,7 @@ namespace StartupProgress
         {
             var headlines = new List<string>(theme.Headlines);
             headlines.AddRange(CommonHeadlines);
+            headlines.AddRange(Lore.Headlines(random, 4));
             for (int i = headlines.Count - 1; i > 0; i--)
             {
                 int j = random.Next(i + 1);
@@ -536,7 +583,7 @@ namespace StartupProgress
             var builder = new StringBuilder();
             int stocksPerHeadline = theme.Id == ThemeChoice.Finance ? 3 : 1;
             int stock = random.Next(Stocks.Length);
-            for (int h = 0; h < 6; h++)
+            for (int h = 0; h < 8; h++)
             {
                 for (int s = 0; s < stocksPerHeadline; s++)
                 {
@@ -555,12 +602,9 @@ namespace StartupProgress
 
         private static LayoutKind PickLayout(System.Random random)
         {
-            int roll = random.Next(100);
-            if (roll < 28) return LayoutKind.Centered;
-            if (roll < 46) return LayoutKind.Split;
-            if (roll < 64) return LayoutKind.SplitMirror;
-            if (roll < 82) return LayoutKind.Sidebar;
-            return LayoutKind.Dock;
+            // The centred terminal is the look; the others stay available from the settings
+            // and the preview.
+            return LayoutKind.Centered;
         }
 
         private static float Range(System.Random random, float min, float max) => min + (float)random.NextDouble() * (max - min);
@@ -616,6 +660,17 @@ namespace StartupProgress
 
         internal string Next()
         {
+            // TerraGroup watches the whole region: about a third of the chatter is intel, and
+            // once in a long while something slips through that should not have.
+            int roll = _random.Next(100);
+            if (roll < 3)
+            {
+                return ":: " + Lore.EasterEgg(_random);
+            }
+            if (roll < 35)
+            {
+                return ":: " + Lore.IntelLine(_random);
+            }
             if (_next >= _order.Length)
             {
                 for (int i = _order.Length - 1; i > 0; i--)

@@ -145,6 +145,8 @@ namespace StartupProgress
                 {
                     StartupTracker.SetDetail(StepId.SelectProfile, $"{profile.Info.Nickname}, level {profile.Info.Level}");
                     StartupTracker.Nickname = profile.Info.Nickname;
+                    StartupTracker.Side = profile.Info.Side == EPlayerSide.Bear ? "BEAR"
+                        : profile.Info.Side == EPlayerSide.Usec ? "USEC" : null;
                 }
             }
             catch (Exception e)

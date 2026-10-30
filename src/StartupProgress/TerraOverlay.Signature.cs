@@ -19,22 +19,27 @@ namespace StartupProgress
         private const float PanelWidth = 344f;
         private const float PanelHeight = 324f;
 
-        private readonly RectTransform[] _panelRoots = new RectTransform[2];
-        private readonly Signature[] _panels = new Signature[2];
-        private readonly Vector2[] _panelSpots = new Vector2[2];
+        /// <summary>Card slots the layout can offer: four where there is room, else two.</summary>
+        private const int MaxCards = 4;
+
+        // Root 0 is a full-screen layer (Holiday's snow); roots 1 to 4 are the card slots.
+        private readonly RectTransform[] _panelRoots = new RectTransform[MaxCards + 1];
+        private readonly Signature[] _panels = new Signature[MaxCards + 1];
+        private readonly Vector2[] _panelSpots = new Vector2[MaxCards];
         private float _panelScale;
 
         private void BuildSignatureRoot(Transform c)
         {
-            _panelRoots[0] = MakeRect("SignaturePanel", c);
-            _panelRoots[1] = MakeRect("SessionPanel", c);
-            Isolate(_panelRoots[0]);
-            Isolate(_panelRoots[1]);
+            for (int i = 0; i <= MaxCards; i++)
+            {
+                _panelRoots[i] = MakeRect(i == 0 ? "ScreenLayer" : "Card" + i, c);
+                Isolate(_panelRoots[i]);
+            }
         }
 
         private void LayoutSignature()
         {
-            for (int p = 0; p < 2; p++)
+            for (int p = 0; p <= MaxCards; p++)
             {
                 RectTransform root = _panelRoots[p];
                 for (int i = root.childCount - 1; i >= 0; i--)
@@ -44,34 +49,28 @@ namespace StartupProgress
                 _panels[p] = null;
             }
 
-            // Holiday's snow covers the whole screen, unframed; its session panel takes the
-            // signature's place.
-            bool snow = _variant.Theme.Id == ThemeChoice.Holiday;
-            if (snow)
-            {
-                _panelRoots[0].anchoredPosition = Vector2.zero;
-                _panelRoots[0].localScale = Vector3.one;
-                _panels[0] = new Snow();
-                _panels[0].Init(this, _panelRoots[0], _u, false);
-            }
-            if (_panelScale <= 0f)
-            {
-                return;
-            }
-            for (int p = snow ? 1 : 0; p < 2; p++)
-            {
-                RectTransform root = _panelRoots[p];
-                root.anchoredPosition = _panelSpots[snow ? 0 : p];
-                root.localScale = Vector3.one * _panelScale;
-                _panels[p] = p == 0 ? CreateSignature(_variant.Theme.Id) : new SessionPanel();
-                _panels[p]?.Init(this, root, _u, true);
-            }
+            // The terminal is the screen: logo, frame and readout, with at most one quiet detail
+            // from the department beside them. (The full-screen scenes and the extra cards are
+            // switched off; see TerraOverlay.Scenes*.cs.)
+            _sceneActive = false;
+            SetActive(_readoutRoot.gameObject, true);
+            SetActive(_brand.gameObject, true);
+            SetActive(_subtitle.gameObject, true);
+
+            // Behind it, the department's ambient drawing (Holiday's is the snow). The details
+            // beside the readout are switched off as clutter; CreateSignature still builds them.
+            _panelRoots[0].anchoredPosition = Vector2.zero;
+            _panelRoots[0].localScale = Vector3.one;
+            _panels[0] = _variant.Theme.Id == ThemeChoice.Holiday ? new Snow() : CreateAmbient(_variant.Theme.Id);
+            _panels[0]?.Init(this, _panelRoots[0], _u, false);
         }
 
         private void AnimatePanels(float t)
         {
-            _panels[0]?.Animate(t);
-            _panels[1]?.Animate(t);
+            for (int i = 0; i <= MaxCards; i++)
+            {
+                _panels[i]?.Animate(t);
+            }
         }
 
         private static Signature CreateSignature(ThemeChoice id)
@@ -92,7 +91,6 @@ namespace StartupProgress
                 case ThemeChoice.Facilities: return new Elevator();
                 case ThemeChoice.Legal: return new Contract();
                 case ThemeChoice.PublicRelations: return new Approval();
-                case ThemeChoice.NightShift: return new Building();
                 case ThemeChoice.Holiday: return new Snow();
                 default: return null;
             }
@@ -766,28 +764,30 @@ namespace StartupProgress
 
             protected override void Build()
             {
+                // Hung from the card's top edge: the lanyard's pivot is just inside it, and the
+                // badge stays well within the card even at the end of its sway.
                 _swing = MakeRect("Swing", R);
                 _swing.anchoredPosition = P(0f, 150f);
                 Shape cord = Draw(0f, 0f, _swing);
-                cord.Line(P(-30f, 20f), P(0f, -38f), 2f * U, A(T.Accent, 200));
-                cord.Line(P(30f, 20f), P(0f, -38f), 2f * U, A(T.Accent, 200));
+                cord.Line(P(-22f, 10f), P(-4f, -30f), 2f * U, A(T.Accent, 200));
+                cord.Line(P(22f, 10f), P(4f, -30f), 2f * U, A(T.Accent, 200));
                 cord.Commit();
                 Color32 card = Color32.Lerp(T.Text, new Color32(255, 255, 255, 255), 0.4f);
                 Color32 ink = Color32.Lerp(T.Ink, new Color32(0, 0, 0, 255), 0.3f);
-                Box(0f, -150f, 200f, 230f, card, _swing);
-                Box(0f, -44f, 34f, 6f, A(ink, 160), _swing);
-                Box(0f, -74f, 200f, 36f, T.Primary, _swing);
-                Label("TERRAGROUP", 0f, -74f, 200f, 14f, card, TextAlignmentOptions.Center, _swing, 10f);
-                Box(0f, -130f, 76f, 76f, A(T.Primary, 70), _swing);
-                _initials = Label("TG", 0f, -130f, 76f, 26f, T.Primary, TextAlignmentOptions.Center, _swing);
-                _name = Label(string.Empty, 0f, -184f, 190f, 15f, ink, TextAlignmentOptions.Center, _swing, 4f);
-                Label($"EMPLOYEE {Rng.Next(10, 100)}-{Rng.Next(1000, 10000)}", 0f, -202f, 190f, 10f, A(ink, 170), TextAlignmentOptions.Center, _swing);
-                Label("HUMAN RESOURCES", 0f, -217f, 190f, 10f, T.Primary, TextAlignmentOptions.Center, _swing);
+                Box(0f, -150f, 176f, 236f, card, _swing);
+                Box(0f, -40f, 30f, 5f, A(ink, 150), _swing);
+                Box(0f, -64f, 176f, 30f, T.Primary, _swing);
+                Label("TERRAGROUP", 0f, -64f, 176f, 13f, card, TextAlignmentOptions.Center, _swing, 10f);
+                Box(0f, -118f, 64f, 64f, A(T.Primary, 60), _swing);
+                _initials = Label("TG", 0f, -118f, 64f, 22f, T.Primary, TextAlignmentOptions.Center, _swing);
+                _name = Label(string.Empty, 0f, -168f, 166f, 14f, ink, TextAlignmentOptions.Center, _swing, 4f);
+                Label($"EMPLOYEE {Rng.Next(10, 100)}-{Rng.Next(1000, 10000)}", 0f, -186f, 166f, 10f, A(ink, 170), TextAlignmentOptions.Center, _swing);
+                Label("HUMAN RESOURCES", 0f, -201f, 166f, 10f, T.Primary, TextAlignmentOptions.Center, _swing);
                 Shape code = Draw(0f, 0f, _swing);
-                for (float x = -70f; x < 70f;)
+                for (float x = -60f; x < 60f;)
                 {
                     float w = Rng.Next(1, 4);
-                    code.Line(P(x + w * 0.5f, -233f), P(x + w * 0.5f, -251f), w * U, ink);
+                    code.Line(P(x + w * 0.5f, -218f), P(x + w * 0.5f, -246f), w * U, ink);
                     x += w + Rng.Next(1, 4);
                 }
                 code.Commit();
@@ -795,7 +795,7 @@ namespace StartupProgress
 
             internal override void Animate(float t)
             {
-                _swing.localEulerAngles = new Vector3(0f, 0f, Mathf.Sin(t * 1.2f) * 3f + O._beat * 2f);
+                _swing.localEulerAngles = new Vector3(0f, 0f, Mathf.Sin(t * 1.1f) * 1.2f + O._beat * 0.8f);
                 string name = StartupTracker.Nickname;
                 if (name != _shownName)
                 {
@@ -895,7 +895,7 @@ namespace StartupProgress
             }
 
             /// <summary>One heartbeat: P wave, the QRS spike, T wave, flat between.</summary>
-            private static float Wave(float p)
+            internal static float Wave(float p)
             {
                 if (p >= 0.10f && p < 0.18f) return 8f * Mathf.Sin(Mathf.PI * (p - 0.10f) / 0.08f);
                 if (p >= 0.24f && p < 0.27f) return -10f * (p - 0.24f) / 0.03f;
@@ -930,7 +930,8 @@ namespace StartupProgress
             private Shape _arrow;
             private int _floor = -1;
 
-            private static Vector2 Button(int i) => new Vector2(i % 2 == 0 ? -35f : 35f, -128f + (i / 2) * 32f);
+            /// <summary>Two columns of six, clear of the display above and the panel's edges.</summary>
+            private static Vector2 Button(int i) => new Vector2(i % 2 == 0 ? -32f : 32f, -110f + (i / 2) * 30f);
 
             protected override void Build()
             {
@@ -1068,90 +1069,209 @@ namespace StartupProgress
             }
         }
 
-        /// <summary>Night Shift: the office block at night, its windows going dark one by one.</summary>
-        private sealed class Building : Signature
+        /// <summary>
+        /// Four of the division's own numbers, each in a tile with its change and a sparkline,
+        /// drifting as if live. Made up, apart from the one that tracks the load.
+        /// </summary>
+        private sealed class KeyFigures : Signature
         {
-            private Image[] _windows;
-            private bool[] _lit;
-            private int _litCount;
-            private TextMeshProUGUI _clock;
-            private int _minute = -1;
+            private const int History = 12;
+            private static readonly Vector2[] Tiles = { new Vector2(-80f, 52f), new Vector2(80f, 52f), new Vector2(-80f, -84f), new Vector2(80f, -84f) };
+            private readonly TextMeshProUGUI[] _values = new TextMeshProUGUI[4];
+            private readonly TextMeshProUGUI[] _deltas = new TextMeshProUGUI[4];
+            private readonly Shape[] _sparks = new Shape[4];
+            private readonly float[][] _history = new float[4][];
+            private readonly float[] _base = new float[4];
+            private readonly float[] _value = new float[4];
+            private readonly string[] _suffix = new string[4];
+            private readonly int[] _decimals = new int[4];
+            private float _next;
+
+            /// <summary>Label, starting value, unit, decimals: four per division.</summary>
+            private static string[] Figures(ThemeChoice id)
+            {
+                switch (id)
+                {
+                    case ThemeChoice.Research: return new[] { "ACTIVE TRIALS|14||0", "SAMPLES|2316||0", "SUCCESS RATE|63|%|1", "OPEN INCIDENTS|3||0" };
+                    case ThemeChoice.Security: return new[] { "BADGE SCANS|8412||0", "GUARDS ON DUTY|46||0", "OPEN INCIDENTS|2||0", "GATES SECURED|98|%|1" };
+                    case ThemeChoice.Finance: return new[] { "REVENUE Q4|412.8| M|1", "EXPENSES|301.2| M|1", "MARGIN|27.0|%|1", "CASH ON HAND|88.4| M|1" };
+                    case ThemeChoice.Records: return new[] { "FILES HELD|1.24| M|2", "REQUESTS|318||0", "PAGES SHREDDED|9640||0", "DIGITISED|71|%|1" };
+                    case ThemeChoice.Executive: return new[] { "MARKET CAP|38.6| B|1", "BONUS POOL|112| M|0", "SHARE PRICE|412.80||2", "BOARD APPROVAL|94|%|1" };
+                    case ThemeChoice.InternalAffairs: return new[] { "OPEN CASES|27||0", "STAFF FLAGGED|112||0", "INTERVIEWS|9||0", "CASES CLOSED|61|%|1" };
+                    case ThemeChoice.Logistics: return new[] { "SHIPMENTS|1284||0", "ON TIME|91.5|%|1", "CONTAINERS|362||0", "DELAYED|17||0" };
+                    case ThemeChoice.HumanResources: return new[] { "HEADCOUNT|12408||0", "OPEN ROLES|231||0", "TURNOVER|14.2|%|1", "MORALE|58|%|1" };
+                    case ThemeChoice.ItDepartment: return new[] { "OPEN TICKETS|412||0", "UPTIME|99.4|%|2", "PATCHES DUE|38||0", "PHISHING CLICKS|12|%|1" };
+                    case ThemeChoice.Medical: return new[] { "PATIENTS|86||0", "BEDS FREE|23||0", "VACCINATED|96|%|1", "SICK DAYS|412||0" };
+                    case ThemeChoice.Facilities: return new[] { "WORK ORDERS|143||0", "LIFTS IN SERVICE|5||0", "ENERGY USE|3.42| MW|2", "DAYS SAFE|0||0" };
+                    case ThemeChoice.Legal: return new[] { "OPEN CASES|64||0", "NDAS SIGNED|2310||0", "SETTLEMENTS|18||0", "BILLABLE HOURS|9412||0" };
+                    case ThemeChoice.PublicRelations: return new[] { "MENTIONS|18.2| K|1", "SENTIMENT|62|%|1", "RELEASES|41||0", "NO COMMENTS|128||0" };
+                    case ThemeChoice.Holiday: return new[] { "GIFTS WRAPPED|412||0", "DAYS OFF|2||0", "PARTIES|0||0", "SNOWFALL|14| CM|0" };
+                    default: return new[] { "HEADCOUNT|12408||0", "SHARE PRICE|412.80||2", "OFFICES|37||0", "SATISFACTION|71|%|1" };
+                }
+            }
 
             protected override void Build()
             {
-                // A crescent moon in a soft halo. The crescent is the moon's disc less a second
-                // disc of the same size shifted right: for each height, the lit band runs from the
-                // moon's left edge to the shadow's left edge.
-                RawImage halo = MakeRaw("Halo", R, Art.Radial, A(T.Accent, 60));
-                Place(halo.rectTransform, 112f * U, 122f * U, 90f * U, 90f * U);
-                // Near the tips the shadow no longer reaches the moon, so the band there is the
-                // moon's whole width, narrowing to a point at top and bottom.
-                const int Rows = 48;
-                float radius = 15f;
-                float shift = 0.55f * radius;
-                var left = new Vector2[Rows + 1];
-                var right = new Vector2[Rows + 1];
-                for (int i = 0; i <= Rows; i++)
+                Label("KEY FIGURES", 0f, 138f, 320f, 12f, T.Dim);
+                Box(0f, 124f, 320f, 1f, T.Faint);
+                string[] figures = Figures(T.Id);
+                for (int i = 0; i < 4; i++)
                 {
-                    // Rows bunched toward the tips, where the outline turns fastest.
-                    float y = -Mathf.Cos(Mathf.PI * i / Rows) * radius;
-                    float half = Mathf.Sqrt(Mathf.Max(0f, radius * radius - y * y));
-                    left[i] = P(112f - half, 122f + y);
-                    right[i] = P(112f + Mathf.Min(half, shift - half), 122f + y);
-                }
-                Shape moon = Draw();
-                moon.Strip(left, right, A(T.Text, 235));
-                moon.Commit();
-                Color32 wall = Color32.Lerp(T.Ink, T.Primary, 0.18f);
-                Box(-40f, -10f, 150f, 270f, wall);
-                Box(80f, -45f, 90f, 200f, wall);
-                var windows = new System.Collections.Generic.List<Image>();
-                Color32 light = Color32.Lerp(T.Accent, new Color32(255, 214, 140, 255), 0.55f);
-                for (int r = 0; r < 11; r++)
-                {
-                    for (int c = 0; c < 5; c++)
+                    string[] parts = figures[i].Split('|');
+                    Vector2 c = Tiles[i];
+                    Box(c.x, c.y, 150f, 124f, Color32.Lerp(T.Ink, T.Primary, 0.14f));
+                    Label(parts[0], c.x, c.y + 46f, 136f, 9f, T.Dim);
+                    _values[i] = Label(string.Empty, c.x, c.y + 18f, 136f, 22f, T.Text, spacing: 2f);
+                    _deltas[i] = Label(string.Empty, c.x, c.y - 8f, 136f, 10f, T.Accent);
+                    _sparks[i] = Draw(c.x, c.y - 38f);
+                    _base[i] = _value[i] = float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
+                    _suffix[i] = parts[2];
+                    _decimals[i] = int.Parse(parts[3]);
+                    _history[i] = new float[History];
+                    for (int h = 0; h < History; h++)
                     {
-                        windows.Add(Box(-100f + c * 30f, 105f - r * 22f, 16f, 11f, light));
+                        _history[i][h] = _base[i] * (1f + Range(-0.04f, 0.04f));
                     }
+                    _history[i][History - 1] = _value[i];
+                    Show(i);
                 }
-                for (int r = 0; r < 8; r++)
+            }
+
+            private void Show(int i)
+            {
+                string format = _decimals[i] == 0 ? "N0" : "N" + _decimals[i];
+                _values[i].text = _value[i].ToString(format, System.Globalization.CultureInfo.InvariantCulture) + _suffix[i];
+                float change = _base[i] != 0f ? (_value[i] - _base[i]) / _base[i] * 100f : 0f;
+                _deltas[i].text = (change >= 0f ? "+" : string.Empty) + change.ToString("0.0") + "% TODAY";
+                _deltas[i].color = change >= 0f ? T.Accent : T.Warn;
+
+                float[] h = _history[i];
+                float min = float.MaxValue, max = float.MinValue;
+                foreach (float v in h)
                 {
-                    for (int c = 0; c < 3; c++)
-                    {
-                        windows.Add(Box(50f + c * 30f, 40f - r * 22f, 16f, 11f, light));
-                    }
+                    min = Mathf.Min(min, v);
+                    max = Mathf.Max(max, v);
                 }
-                _windows = windows.ToArray();
-                _lit = new bool[_windows.Length];
-                for (int i = 0; i < _windows.Length; i++)
+                float span = Mathf.Max(max - min, Mathf.Abs(_base[i]) * 0.01f + 0.0001f);
+                Shape s = _sparks[i];
+                s.Clear();
+                for (int k = 0; k < History - 1; k++)
                 {
-                    _lit[i] = Rng.NextDouble() < 0.65;
-                    _litCount += _lit[i] ? 1 : 0;
-                    _windows[i].canvasRenderer.SetAlpha(_lit[i] ? 0.85f : 0.06f);
+                    Vector2 a = P(-65f + k * 130f / (History - 1), (h[k] - min) / span * 22f - 11f);
+                    Vector2 b = P(-65f + (k + 1) * 130f / (History - 1), (h[k + 1] - min) / span * 22f - 11f);
+                    s.Line(a, b, 1.5f * U, A(T.Accent, 170));
                 }
-                _clock = Label(string.Empty, 0f, -150f, 320f, 11f, T.Dim, TextAlignmentOptions.Center);
+                s.Commit();
             }
 
             internal override void Animate(float t)
             {
-                if (Rng.NextDouble() < 3f * Dt)
+                if (t < _next)
                 {
-                    float target = 0.65f - 0.5f * Progress;
-                    int i = Rng.Next(_windows.Length);
-                    bool wantOff = _litCount > target * _windows.Length;
-                    if (_lit[i] == wantOff)
-                    {
-                        _lit[i] = !wantOff;
-                        _litCount += _lit[i] ? 1 : -1;
-                        _windows[i].canvasRenderer.SetAlpha(_lit[i] ? 0.85f : 0.06f);
-                    }
+                    return;
                 }
+                _next = t + 1.1f;
+                int i = Rng.Next(4);
+                _value[i] = Mathf.Max(0f, _value[i] * (1f + Range(-0.025f, 0.03f)));
+                if (_decimals[i] == 0)
+                {
+                    _value[i] = Mathf.Round(_value[i] + Rng.Next(-2, 4));
+                    _value[i] = Mathf.Max(0f, _value[i]);
+                }
+                Array.Copy(_history[i], 1, _history[i], 0, History - 1);
+                _history[i][History - 1] = _value[i];
+                Show(i);
+            }
+        }
+
+        /// <summary>
+        /// The division's notice board: timestamped items, a new one arriving at the top every
+        /// few seconds and pushing the oldest off.
+        /// </summary>
+        private sealed class Bulletin : Signature
+        {
+            private const int Rows = 5;
+            private readonly TextMeshProUGUI[] _times = new TextMeshProUGUI[Rows];
+            private readonly TextMeshProUGUI[] _items = new TextMeshProUGUI[Rows];
+            private readonly string[] _timeText = new string[Rows];
+            private readonly string[] _itemText = new string[Rows];
+            private Image _flash;
+            private Chatter _source;
+            private float _next;
+            private float _arrived = -10f;
+
+            protected override void Build()
+            {
+                _source = new Chatter(Rng, T);
+                Label("BULLETIN", 0f, 138f, 320f, 12f, T.Dim);
+                Box(0f, 124f, 320f, 1f, T.Faint);
+                _flash = Box(0f, 96f, 330f, 46f, T.Accent);
+                _flash.canvasRenderer.SetAlpha(0f);
                 DateTime now = DateTime.Now;
-                if (now.Minute != _minute)
+                int minutesAgo = 0;
+                for (int i = 0; i < Rows; i++)
                 {
-                    _minute = now.Minute;
-                    _clock.text = "LOCAL TIME  " + now.ToString("HH:mm");
+                    float y = 104f - i * 50f;
+                    _times[i] = Label(string.Empty, 0f, y, 320f, 10f, T.Accent);
+                    _items[i] = Label(string.Empty, 0f, y - 17f, 320f, 12f, T.Text, spacing: 3f);
+                    _items[i].overflowMode = TextOverflowModes.Ellipsis;
+                    if (i < Rows - 1)
+                    {
+                        Box(0f, y - 33f, 320f, 1f, A(T.Dim, 28));
+                    }
+                    minutesAgo += Rng.Next(3, 40);
+                    _timeText[i] = now.AddMinutes(-minutesAgo).ToString("HH:mm") + "  //  " + Sender();
+                    _itemText[i] = Notice();
                 }
+                Refresh();
+            }
+
+            private static readonly string[] Senders = { "HR", "FACILITIES", "LEGAL", "IT", "SECURITY", "COMMS", "THE BOARD" };
+
+            private string Sender() => Senders[Rng.Next(Senders.Length)];
+
+            private string Notice()
+            {
+                // Office chatter and the division's headlines, read as notices.
+                if (Rng.Next(3) == 0 && T.Headlines.Length > 0)
+                {
+                    return T.Headlines[Rng.Next(T.Headlines.Length)];
+                }
+                string line = _source.Next();
+                return line.StartsWith(":: ") ? line.Substring(3) : line;
+            }
+
+            private void Refresh()
+            {
+                for (int i = 0; i < Rows; i++)
+                {
+                    _times[i].text = _timeText[i];
+                    _items[i].text = _itemText[i];
+                    _times[i].canvasRenderer.SetAlpha(1f - i * 0.12f);
+                    _items[i].canvasRenderer.SetAlpha(1f - i * 0.14f);
+                }
+            }
+
+            internal override void Animate(float t)
+            {
+                if (_next == 0f)
+                {
+                    _next = t + Range(2f, 4f);
+                }
+                if (t >= _next)
+                {
+                    _next = t + Range(3.5f, 6f);
+                    for (int i = Rows - 1; i > 0; i--)
+                    {
+                        _timeText[i] = _timeText[i - 1];
+                        _itemText[i] = _itemText[i - 1];
+                    }
+                    _timeText[0] = DateTime.Now.ToString("HH:mm") + "  //  " + Sender() + "  //  NEW";
+                    _itemText[0] = Notice();
+                    Refresh();
+                    _arrived = t;
+                }
+                _flash.canvasRenderer.SetAlpha(Mathf.Clamp01(1f - (t - _arrived) / 0.8f) * 0.1f);
             }
         }
 

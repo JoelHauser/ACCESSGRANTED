@@ -102,6 +102,9 @@ namespace StartupProgress
         /// <summary>The selected profile's nickname, once the game has picked it; null before.</summary>
         internal static string Nickname { get; set; }
 
+        /// <summary>The selected profile's faction, BEAR or USEC; null before the game picks a profile.</summary>
+        internal static string Side { get; set; }
+
         /// <summary>True once a full launch has replaced the guessed step times with real ones.</summary>
         internal static bool HasBaseline => LastTotal > 0f || Preview;
 

@@ -39,7 +39,24 @@ namespace StartupProgress
             _indices.Clear();
         }
 
-        internal void Commit() => SetVerticesDirty();
+        /// <summary>
+        /// Hands the geometry to Unity. The rect is sized to cover every vertex: a mask culls
+        /// a graphic by its rect, and a zero-size rect at the centre made a shape inside a mask
+        /// vanish or pop in whole as its centre crossed the mask's edge.
+        /// </summary>
+        internal void Commit()
+        {
+            float x = 0f;
+            float y = 0f;
+            for (int i = 0; i < _vertices.Count; i++)
+            {
+                Vector3 p = _vertices[i].position;
+                x = Mathf.Max(x, Mathf.Abs(p.x));
+                y = Mathf.Max(y, Mathf.Abs(p.y));
+            }
+            rectTransform.sizeDelta = new Vector2(x * 2f, y * 2f);
+            SetVerticesDirty();
+        }
 
         /// <summary>A filled convex polygon, either winding, with a soft outer edge.</summary>
         internal void Polygon(Vector2[] points, Color32 color)
@@ -91,6 +108,41 @@ namespace StartupProgress
         }
 
         internal void Tri(Vector2 a, Vector2 b, Vector2 c, Color32 color) => Polygon(new[] { a, b, c }, color);
+
+        /// <summary>
+        /// A filled rectangle with rounded corners, each with its own radius (0 for square),
+        /// top-left, top-right, bottom-right, bottom-left. Soft-edged like everything else here,
+        /// so card-like things look manufactured rather than cut out.
+        /// </summary>
+        internal void RoundedRect(Vector2 centre, float width, float height, float tl, float tr, float br, float bl, Color32 color)
+        {
+            float hw = width * 0.5f;
+            float hh = height * 0.5f;
+            var points = new List<Vector2>(40);
+            Corner(points, centre + new Vector2(-hw + tl, hh - tl), tl, 90f, 180f);
+            Corner(points, centre + new Vector2(-hw + bl, -hh + bl), bl, 180f, 270f);
+            Corner(points, centre + new Vector2(hw - br, -hh + br), br, 270f, 360f);
+            Corner(points, centre + new Vector2(hw - tr, hh - tr), tr, 0f, 90f);
+            Polygon(points.ToArray(), color);
+        }
+
+        internal void RoundedRect(Vector2 centre, float width, float height, float radius, Color32 color) =>
+            RoundedRect(centre, width, height, radius, radius, radius, radius, color);
+
+        /// <summary>A quarter circle of points, anticlockwise from <paramref name="from"/> degrees (0 = right).</summary>
+        private static void Corner(List<Vector2> points, Vector2 centre, float radius, float from, float to)
+        {
+            if (radius <= 0.01f)
+            {
+                points.Add(centre);
+                return;
+            }
+            for (int i = 0; i <= 6; i++)
+            {
+                float a = Mathf.Lerp(from, to, i / 6f) * Mathf.Deg2Rad;
+                points.Add(centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * radius);
+            }
+        }
 
         /// <summary>A filled circle.</summary>
         internal void Disc(Vector2 centre, float radius, Color32 color)

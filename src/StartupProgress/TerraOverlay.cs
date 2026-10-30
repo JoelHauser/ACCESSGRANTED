@@ -103,6 +103,9 @@ namespace StartupProgress
 
         /// <summary>The logo and wordmark, in a layer of their own over the content, so an ending can keep them a moment longer.</summary>
         private RectTransform _brand;
+
+        /// <summary>The standard readout (bar, current step, log, chatter); a department's scene replaces it.</summary>
+        private RectTransform _readoutRoot;
         private CanvasGroup _group;
         private Vector2 _laidOutSize;
         private float _u = 1f;
@@ -348,7 +351,7 @@ namespace StartupProgress
 
             // The readout changes several times a second (typing, timers, the running
             // segment), so it gets a canvas of its own too.
-            RectTransform readout = MakeRect("Readout", c);
+            RectTransform readout = _readoutRoot = MakeRect("Readout", c);
             Stretch(readout);
             Isolate(readout);
             Transform r = readout;
@@ -377,6 +380,7 @@ namespace StartupProgress
             _logLabels = MakeText("LogLabels", r, TextAlignmentOptions.TopLeft, Dim);
             _logTimes = MakeText("LogTimes", r, TextAlignmentOptions.TopRight, Dim);
             _chatter = MakeText("Chatter", r, TextAlignmentOptions.Left, Dim);
+            _chatter.overflowMode = TextOverflowModes.Ellipsis;
 
             _topLeft = MakeText("TopLeft", c, TextAlignmentOptions.TopLeft, Dim);
             _topRight = MakeText("TopRight", c, TextAlignmentOptions.TopRight, Dim);
@@ -493,7 +497,7 @@ namespace StartupProgress
             StartupProgressPlugin.Log.LogInfo(
                 $"Terminal: {theme.Id} ({_variant.Layout} layout, {_variant.Backdrop}, {_variant.Frame} frame, {_variant.Intro} intro, {_variant.Bar} bar, {_variant.Outro} ending), glitches {_variant.Glitches}, line '{_variant.GrantText}'"
                 + (_variant.FakeDenial ? ", fake denial" : string.Empty)
-                + (_variant.MemoAt >= 0f ? ", memo" : string.Empty) + ".");
+                + $", {_variant.Notices.Length} notices.");
         }
 
         private void StartLoading(ProfileLoadingScreen screen)
