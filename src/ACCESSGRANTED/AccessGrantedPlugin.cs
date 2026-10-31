@@ -54,11 +54,11 @@ namespace ACCESSGRANTED
             Enabled = Config.Bind("General", "Enabled", true,
                 "Show the TerraGroup loading terminal instead of the plain loading text.");
             Theme = Config.Bind("Style", "Theme", ThemeChoice.Random,
-                "The terminal's colours. Random picks one each launch, some rarer than others.");
+                "The TerraGroup department the terminal belongs to, with its own colours, drawing and memos. Random picks one each launch, some rarer than others.");
             Glitches = Config.Bind("Style", "Glitches", GlitchLevel.Subtle,
                 "How often the terminal glitches: tears, colour splits, garbled text. Off for none.");
             Layout = Config.Bind("Style", "Layout", LayoutKind.Random,
-                "How the logo and the readout are arranged. Random picks one each launch.");
+                "How the logo and the readout are arranged. Random uses the centred layout; pick another to use it every launch.");
             Backdrop = Config.Bind("Style", "Background", BackdropKind.Random,
                 "The pattern behind everything. Random lets each department pick one of its own.");
             Frame = Config.Bind("Style", "Logo Frame", FrameKind.Random,

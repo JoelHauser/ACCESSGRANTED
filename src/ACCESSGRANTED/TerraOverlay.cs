@@ -228,8 +228,9 @@ namespace ACCESSGRANTED
             var go = new GameObject("TerraGroupLoading", typeof(RectTransform), typeof(CanvasGroup));
             DontDestroyOnLoad(go);
             _instance = go.AddComponent<TerraOverlay>();
-            // Build colours from a palette; each run rolls its own anyway.
-            _instance.Roll();
+            // Build colours from a palette; each run rolls its own anyway. Not recorded as seen:
+            // nothing from this roll is shown.
+            _instance.Roll(record: false);
             var clock = System.Diagnostics.Stopwatch.StartNew();
             _instance.Build(font, material);
             AccessGrantedPlugin.Log.LogInfo($"Terminal built in {clock.Elapsed.TotalMilliseconds:0.0} ms.");
@@ -444,7 +445,8 @@ namespace ACCESSGRANTED
         }
 
         /// <summary>Rolls this launch's division, rings, header, ending and surprises.</summary>
-        private void Roll()
+        /// <param name="record">False for a roll that is never shown: its memos and headlines are not marked as seen.</param>
+        private void Roll(bool record = true)
         {
             if (_random == null)
             {
@@ -453,7 +455,7 @@ namespace ACCESSGRANTED
             // A preview brings its own roll, picked with the preview's keys.
             _variant = _previewing && _previewVariant != null
                 ? _previewVariant
-                : Variant.Roll(_random, AccessGrantedPlugin.Theme.Value, AccessGrantedPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig());
+                : Variant.Roll(_random, AccessGrantedPlugin.Theme.Value, AccessGrantedPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig(), preview: !record);
             _chatterSource = new Chatter(_random, _variant.Theme);
         }
 

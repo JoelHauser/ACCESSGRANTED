@@ -147,6 +147,8 @@ namespace ACCESSGRANTED
             Stretch(_memoPanel.rectTransform);
             _memoStripe = MakeImage("Stripe", _memo, Accent);
             _memoTitle = MakeText("Title", _memo, TextAlignmentOptions.TopLeft, Accent);
+            // A long department name on a narrow screen must not run off the card.
+            _memoTitle.overflowMode = TextOverflowModes.Ellipsis;
             _memoBody = MakeText("Body", _memo, TextAlignmentOptions.TopLeft, Text);
             _memoBody.enableWordWrapping = true;
             _memo.gameObject.SetActive(false);

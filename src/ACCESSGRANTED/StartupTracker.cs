@@ -357,7 +357,6 @@ namespace ACCESSGRANTED
             return Math.Min(StepElapsed / Math.Max(Usual(Current), 0.05f), 0.95f);
         }
 
-        /// <summary>Called once per drawn frame while a run is going.</summary>
         /// <summary>Time the terminal's own per-frame work took, in seconds.</summary>
         internal static void NoteTerminal(float seconds)
         {
@@ -370,6 +369,7 @@ namespace ACCESSGRANTED
             _runFrames++;
         }
 
+        /// <summary>Called once per drawn frame while a run is going.</summary>
         internal static void NoteFrame(float seconds)
         {
             if (!Active)

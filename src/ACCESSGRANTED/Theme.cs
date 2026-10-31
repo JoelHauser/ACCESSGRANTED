@@ -424,7 +424,10 @@ namespace ACCESSGRANTED
 
         private static readonly string[] Stocks = { "TGRP", "TG-LABS", "NVSK IDX", "BTC", "RUB/USD", "USEC LTD", "TG-PHARMA" };
 
-        /// <param name="preview">A preview always shows a memo and is more likely to fake a denial.</param>
+        /// <param name="preview">
+        /// A preview (or a roll never shown): shows three notices, is more likely to fake a
+        /// denial, and does not mark what it picks as seen.
+        /// </param>
         internal static Variant Roll(System.Random random, ThemeChoice choice, GlitchLevel glitches, int launches, Pins pins, bool preview = false)
         {
             var v = new Variant { Glitches = glitches };
@@ -630,13 +633,9 @@ namespace ACCESSGRANTED
 
         internal string Next()
         {
-            // TerraGroup watches the whole region: about a third of the chatter is intel, and
-            // once in a long while something slips through that should not have.
+            // TerraGroup watches the whole region: about a third of the chatter is intel. (The
+            // unsigned notes are too long for this one line; they arrive as notices instead.)
             int roll = _random.Next(100);
-            if (roll < 3)
-            {
-                return ":: " + Lore.EasterEgg(_random);
-            }
             if (roll < 35)
             {
                 return ":: " + Lore.IntelLine(_random);

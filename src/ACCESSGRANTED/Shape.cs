@@ -238,35 +238,6 @@ namespace ACCESSGRANTED
             }
         }
 
-        /// <summary>
-        /// A filled band between two edges, given as matching rows of points (row i of
-        /// <paramref name="left"/> faces row i of <paramref name="right"/>), soft along both edges
-        /// and seamless inside. For outlines no convex polygon can make, like a crescent.
-        /// </summary>
-        internal void Strip(Vector2[] left, Vector2[] right, Color32 color)
-        {
-            Color32 clear = Clear(color);
-            int start = _vertices.Count;
-            for (int i = 0; i < left.Length; i++)
-            {
-                Vector2 across = (right[i] - left[i]).normalized * Feather;
-                Add(left[i] - across, clear);
-                Add(left[i], color);
-                Add(right[i], color);
-                Add(right[i] + across, clear);
-            }
-            for (int i = 0; i < left.Length - 1; i++)
-            {
-                int a = start + i * 4;
-                int b = a + 4;
-                for (int k = 0; k < 3; k++)
-                {
-                    Index(a + k, a + k + 1, b + k + 1);
-                    Index(a + k, b + k + 1, b + k);
-                }
-            }
-        }
-
         private void Cap(float degrees, float inner, float outer, float sign, Color32 color)
         {
             Vector2 d = Direction(degrees);
