@@ -26,7 +26,7 @@ From the splash screen to the main menu, your launch becomes a TerraGroup sign-i
 >
 > **RE:** Signing in at start-up
 >
-> ---
+> ────────────────────────────────────
 >
 > A reminder that every company workstation signs in to the employee network when it starts up. Your session opens your department's terminal, with the day's memos, intelligence briefings and news feed.
 >
