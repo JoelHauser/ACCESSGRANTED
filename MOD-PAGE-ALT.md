@@ -10,13 +10,13 @@
   Check it in the Forge editor's preview before saving.
 
   Images are served from the repository (docs/images), so they show once pushed to main.
-  alt-hero.webp is animated (7 s loop). Thumbnail: a square image, the Forge crops to 1:1.
+  alt-hero-v2.webp is animated (renamed so caches drop the old, banded one) (7 s loop). Thumbnail: a square image, the Forge crops to 1:1.
 
   Short-description field:
     "Your launch becomes a TerraGroup sign-in terminal: the real load steps, timed, in a different department every time."
 -->
 
-![ACCESS GRANTED: the TerraGroup sign-in terminal](https://raw.githubusercontent.com/JoelHauser/ACCESSGRANTED/main/docs/images/alt-hero.webp)
+![ACCESS GRANTED: the TerraGroup sign-in terminal](https://raw.githubusercontent.com/JoelHauser/ACCESSGRANTED/main/docs/images/alt-hero-v2.webp)
 
 From the splash screen to the main menu, your launch becomes a TerraGroup sign-in terminal. It shows what EFT is really loading, timed against your own launches, and it's a different department every time.
 
