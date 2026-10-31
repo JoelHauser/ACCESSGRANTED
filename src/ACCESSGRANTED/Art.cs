@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// The few textures the overlay needs, drawn once in code so the mod ships as a single DLL.
@@ -87,6 +87,49 @@ namespace StartupProgress
         /// <summary>A ruled line every 36 pixels, like a ledger page.</summary>
         internal static Texture2D Ruled => _ruled ?? (_ruled = Make(1, 36, TextureWrapMode.Repeat, FilterMode.Point, (x, y) =>
             y == 0 ? 1f : 0f));
+
+        private static Texture2D _grain;
+
+        /// <summary>
+        /// Fine black grain, one texel per screen pixel, laid over the whole terminal to break up
+        /// the bands an 8-bit screen shows in a wide, dark gradient (the glows). A gradient that
+        /// big is stretched from a small texture, so dither inside that texture comes out in
+        /// blocks; this is dither at the screen's own resolution. It darkens by a random few
+        /// percent, which is about one step of a dark colour in either colour space (a fixed
+        /// amount added instead would be far too strong in a linear one).
+        /// </summary>
+        internal static Texture2D Grain
+        {
+            get
+            {
+                if (_grain != null)
+                {
+                    return _grain;
+                }
+                const int Size = 128;
+                // About a step and a half of a dark colour (an 8-bit value near 25) either way.
+                bool linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
+                byte strength = (byte)(linear ? 34 : 18);
+                AccessGrantedPlugin.Log?.LogInfo($"Grain: {(linear ? "linear" : "gamma")} colour space, strength {strength}/255.");
+                var random = new System.Random(7);
+                var pixels = new Color32[Size * Size];
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    pixels[i] = new Color32(0, 0, 0, (byte)random.Next(strength + 1));
+                }
+                _grain = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
+                {
+                    wrapMode = TextureWrapMode.Repeat,
+                    filterMode = FilterMode.Point,
+                    hideFlags = HideFlags.DontUnloadUnusedAsset
+                };
+                _grain.SetPixels32(pixels);
+                _grain.Apply(false, true);
+                return _grain;
+            }
+        }
+
+        internal const float GrainSize = 128f;
 
         /// <summary>Under half a step of 8-bit alpha, varying pixel to pixel.</summary>
         private static float Dither(int x, int y)

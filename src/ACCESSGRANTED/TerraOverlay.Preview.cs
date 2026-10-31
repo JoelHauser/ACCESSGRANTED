@@ -2,7 +2,7 @@ using System;
 using TMPro;
 using UnityEngine;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// The preview: from the main menu, the terminal plays over a pretend load (see
@@ -39,7 +39,7 @@ namespace StartupProgress
                 FindBootFont(null, out TMP_FontAsset font, out Material material);
                 Create(font, material);
             }
-            _instance.PlayPreview(_instance.RollPreview(StartupProgressPlugin.Theme.Value, StartupProgressPlugin.Layout.Value));
+            _instance.PlayPreview(_instance.RollPreview(AccessGrantedPlugin.Theme.Value, AccessGrantedPlugin.Layout.Value));
         }
 
         /// <summary>The preview's keys. Called every frame by the plugin; does nothing unless a preview is showing.</summary>
@@ -91,7 +91,7 @@ namespace StartupProgress
             }
             Pins pins = Pins.FromConfig();
             pins.Layout = layout;
-            return Variant.Roll(_random, theme, StartupProgressPlugin.Glitches.Value, StartupTracker.Launches, pins, preview: true);
+            return Variant.Roll(_random, theme, AccessGrantedPlugin.Glitches.Value, StartupTracker.Launches, pins, preview: true);
         }
 
         /// <summary>Plays <paramref name="variant"/> from the intro, cutting off whatever was showing.</summary>

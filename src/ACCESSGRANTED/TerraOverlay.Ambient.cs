@@ -4,26 +4,83 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// Each department's ambient drawing: one large, faint, slow thing behind the terminal that
     /// belongs to that department and, where it can, follows the load, the way Finance's share
     /// chart climbs. No widgets; at the chart's opacity so the logo and readout stay the subject.
     ///
-    /// Nothing is drawn under text. The centred layout's text is the logo and wordmark, the
-    /// readout column under them (within 320 of the centre line), the memo in the top-right
-    /// corner, the corner lines and the ticker. The drawings keep to what that leaves: a zone
-    /// either side of the column, and a strip under the readout, above the ticker. Built on the
-    /// full-screen layer, in 1080p units around the screen's centre.
+    /// Nothing is drawn under text. Each layout names the areas its text leaves free (ArtZones):
+    /// two zones, and a strip under the readout above the ticker that both zones reach down to,
+    /// so a drawing can run from one zone along the strip into the other without crossing text.
+    /// The drawings size themselves to those areas. Built on the full-screen layer, in 1080p
+    /// units around the screen's centre.
     /// </summary>
     internal partial class TerraOverlay
     {
+        private const float ArtFloor = -405f;
+        private const float ArtStripTop = -322f;
+        private const float ArtStripBottom = -408f;
+        /// <summary>Under the top corner lines.</summary>
+        private const float ArtTop = 400f;
+        /// <summary>Under the memo in the top-right corner.</summary>
+        private const float ArtUnderMemo = 170f;
+
         /// <summary>
-        /// Whether the ambient drawings have room: only the centred layout leaves the zones free,
-        /// and a screen much narrower than 5:4 leaves too little beside the column.
+        /// The text-free areas of the current layout, in 1080p units, y up: a left and a right
+        /// zone, both reaching down to the strip. False where the layout leaves no room (the dock,
+        /// and screens too narrow for zones beside the text).
         /// </summary>
-        private bool AmbientRoom => _layout == LayoutKind.Centered && _laidOutSize.x >= 1250f * _u;
+        private bool ArtZones(out Rect left, out Rect right, out Rect strip)
+        {
+            float w = _laidOutSize.x / _u;
+            float edge = w * 0.5f - 72f;
+            float stripHalf = w * 0.5f - 118f;
+            left = right = strip = default;
+            strip = Rect.MinMaxRect(-stripHalf, ArtStripBottom, stripHalf, ArtStripTop);
+            switch (_layout)
+            {
+                case LayoutKind.Centered:
+                    // Either side of the logo and readout column (within 320 of the centre line).
+                    if (edge - 360f < 180f)
+                    {
+                        return false;
+                    }
+                    left = Rect.MinMaxRect(-edge, ArtFloor, -360f, ArtTop);
+                    right = Rect.MinMaxRect(360f, ArtFloor, edge, ArtUnderMemo);
+                    return true;
+                case LayoutKind.Sidebar:
+                {
+                    // The open area right of the sign-in panel, in two halves.
+                    float open = -w * 0.5f + 620f + 40f;
+                    if (edge - open < 440f)
+                    {
+                        return false;
+                    }
+                    float middle = (open + edge) * 0.5f;
+                    left = Rect.MinMaxRect(open, ArtFloor, middle - 20f, ArtTop);
+                    right = Rect.MinMaxRect(middle + 20f, ArtFloor, edge, ArtUnderMemo);
+                    strip = Rect.MinMaxRect(open, ArtStripBottom, Mathf.Min(edge, stripHalf), ArtStripTop);
+                    return true;
+                }
+                case LayoutKind.Split:
+                case LayoutKind.SplitMirror:
+                {
+                    // Under the logo and wordmark on one side, under the readout on the other.
+                    bool brandLeft = _layout == LayoutKind.Split;
+                    const float UnderBrand = -160f;
+                    const float UnderReadout = -120f;
+                    left = Rect.MinMaxRect(-edge, ArtFloor, -30f, brandLeft ? UnderBrand : UnderReadout);
+                    right = Rect.MinMaxRect(30f, ArtFloor, edge, brandLeft ? UnderReadout : UnderBrand);
+                    return true;
+                }
+                default:
+                    return false;
+            }
+        }
+
+        private bool AmbientRoom => ArtZones(out _, out _, out _);
 
         /// <summary>The department's ambient drawing, or null where the backdrop already has one (Finance, Corporate).</summary>
         private static Signature CreateAmbient(ThemeChoice id)
@@ -46,45 +103,55 @@ namespace StartupProgress
             }
         }
 
-        /// <summary>Shared sizes, strengths and the text-free zones for the ambient drawings.</summary>
+        /// <summary>Shared strengths, shapes and the text-free areas for the ambient drawings.</summary>
         private abstract class Ambient : Signature
         {
-            /// <summary>Inner edge of the side zones: clear of the readout column and the subtitle.</summary>
-            protected const float In = 360f;
-            /// <summary>Top of the left zone, under the top-left corner line.</summary>
-            protected const float LeftTop = 400f;
-            /// <summary>Top of the right zone, under the memo.</summary>
-            protected const float RightTop = 170f;
-            /// <summary>Bottom of the side zones, above the ticker.</summary>
-            protected const float Floor = -405f;
-            /// <summary>The strip under the readout's last line and above the ticker.</summary>
-            protected const float StripTop = -322f;
-            protected const float StripBottom = -408f;
+            private bool _zoned;
+            private Rect _left;
+            private Rect _right;
+            private Rect _strip;
 
-            protected float W => O._laidOutSize.x / U;
-            protected float H => O._laidOutSize.y / U;
-            /// <summary>Outer edge of the side zones, inside the corner brackets.</summary>
-            protected float Out => W * 0.5f - 72f;
-            protected float ZoneW => Out - In;
-            /// <summary>Centre of the right zone; the left one is at minus this.</summary>
-            protected float ZoneX => (In + Out) * 0.5f;
-            protected float StripHalf => W * 0.5f - 118f;
-            protected float StripY => (StripTop + StripBottom) * 0.5f;
-            protected float StripH => StripTop - StripBottom;
+            private void Zones()
+            {
+                if (!_zoned)
+                {
+                    O.ArtZones(out _left, out _right, out _strip);
+                    _zoned = true;
+                }
+            }
 
-            protected static float Top(int side) => side < 0 ? LeftTop : RightTop;
+            /// <summary>The left zone.</summary>
+            protected Rect Lz { get { Zones(); return _left; } }
+            /// <summary>The right zone.</summary>
+            protected Rect Rz { get { Zones(); return _right; } }
+            /// <summary>The strip under the readout, above the ticker.</summary>
+            protected Rect Sz { get { Zones(); return _strip; } }
+            protected Rect Zone(int side) => side == 0 ? Lz : Rz;
+            /// <summary>The taller zone, for the one big piece; the other gets the rest.</summary>
+            protected Rect Tall => Lz.height >= Rz.height ? Lz : Rz;
+            protected Rect Other => Lz.height >= Rz.height ? Rz : Lz;
+
+            protected override bool Seeded => true;
 
             protected Color32 Line => A(T.Accent, 70);
             protected Color32 Soft => A(T.Accent, 30);
             protected Color32 Fill => A(T.Accent, 10);
 
-            /// <summary>A masked area, centred at (x, y): what is drawn in it stops at its edges.</summary>
-            protected RectTransform Clip(float x, float y, float w, float h)
+            /// <summary>A masked area: what is drawn in it stops at its edges. Draw in it relative to its centre.</summary>
+            protected RectTransform Clip(Rect area)
             {
                 RectTransform rect = MakeRect("Clip", R);
-                Place(rect, x * U, y * U, w * U, h * U);
+                Place(rect, area.center.x * U, area.center.y * U, area.width * U, area.height * U);
                 rect.gameObject.AddComponent<RectMask2D>();
                 return rect;
+            }
+
+            /// <summary>A head-and-shoulders silhouette filling a photo h tall, centred at (x, y).</summary>
+            protected void Person(Shape shape, float x, float y, float h, Color32 color)
+            {
+                shape.Disc(P(x, y + 0.16f * h), 0.2f * h * U, color);
+                float r = 0.17f * h * U;
+                shape.RoundedRect(P(x, y - 0.3f * h), 0.72f * h * U, 0.34f * h * U, r, r, 0f, 0f, color);
             }
         }
 
@@ -98,9 +165,10 @@ namespace StartupProgress
 
             protected override void Build()
             {
-                float half = StripHalf;
-                float h = StripH * 0.5f;
-                RectTransform clip = Clip(0f, StripY, half * 2f, StripH);
+                Rect strip = Sz;
+                float half = strip.width * 0.5f;
+                float h = strip.height * 0.5f;
+                RectTransform clip = Clip(strip);
                 Shape paper = Draw(0f, 0f, clip);
                 for (float x = -half; x <= half; x += 40f)
                 {
@@ -136,7 +204,7 @@ namespace StartupProgress
             }
         }
 
-        /// <summary>Research: a double helix rising up each side of the terminal.</summary>
+        /// <summary>Research: a double helix rising up each zone.</summary>
         private sealed class Helix : Ambient
         {
             private const float Wavelength = 360f;
@@ -145,13 +213,12 @@ namespace StartupProgress
 
             protected override void Build()
             {
-                float amplitude = Mathf.Min(64f, ZoneW * 0.3f);
                 for (int s = 0; s < 2; s++)
                 {
-                    int side = s == 0 ? -1 : 1;
-                    float top = Top(side);
-                    float h = top - Floor;
-                    RectTransform clip = Clip(side * ZoneX, (top + Floor) * 0.5f, ZoneW, h);
+                    Rect zone = Zone(s);
+                    float amplitude = Mathf.Min(64f, zone.width * 0.3f);
+                    float h = zone.height;
+                    RectTransform clip = Clip(zone);
                     Shape helix = _helices[s] = Draw(0f, 0f, clip);
                     float start = -h * 0.5f - Wavelength;
                     float phase = s * Mathf.PI * 0.5f;
@@ -190,7 +257,7 @@ namespace StartupProgress
             }
         }
 
-        /// <summary>Security: a wing of the building either side, a guard patrolling each corridor.</summary>
+        /// <summary>Security: a wing of the building in each zone, a guard patrolling each corridor.</summary>
         private sealed class FloorPlan : Ambient
         {
             private const float Corridor = 44f;
@@ -205,11 +272,11 @@ namespace StartupProgress
                 Shape plan = Draw();
                 for (int s = 0; s < 2; s++)
                 {
-                    int side = s == 0 ? -1 : 1;
-                    float left = side < 0 ? -Out + 10f : In + 10f;
-                    float right = left + ZoneW - 20f;
-                    float top = Top(side) - 10f;
-                    float bottom = Floor + 10f;
+                    Rect zone = Zone(s);
+                    float left = zone.xMin + 10f;
+                    float right = zone.xMax - 10f;
+                    float top = zone.yMax - 10f;
+                    float bottom = zone.yMin + 10f;
                     float cx = (left + right) * 0.5f;
                     Outline(plan, cx, (top + bottom) * 0.5f, right - left, top - bottom, 2f, Line);
 
@@ -264,8 +331,8 @@ namespace StartupProgress
         }
 
         /// <summary>
-        /// Logistics: a dotted shipping route down the left, along the strip and up the right, a
-        /// marker travelling it as the load goes.
+        /// Logistics: a dotted shipping route down the left zone, along the strip and up the right
+        /// one, a marker travelling it as the load goes.
         /// </summary>
         private sealed class ShippingRoute : Ambient
         {
@@ -277,20 +344,23 @@ namespace StartupProgress
 
             protected override void Build()
             {
-                float jitter = ZoneW * 0.28f;
-                float x = ZoneX;
+                Rect l = Lz;
+                Rect r = Rz;
+                float y = Sz.center.y;
+                float jl = l.width * 0.28f;
+                float jr = r.width * 0.28f;
                 // A stop where a zone meets the strip is in both, so every leg stays in one of them.
                 _points = new[]
                 {
-                    new Vector2(-x + Range(-jitter, jitter), LeftTop - 40f),
-                    new Vector2(-x + Range(-jitter, jitter), 160f),
-                    new Vector2(-x + Range(-jitter, jitter), -90f),
-                    new Vector2(-x, StripY + Range(-20f, 20f)),
-                    new Vector2(-StripHalf * 0.3f, StripY + Range(-25f, 25f)),
-                    new Vector2(StripHalf * 0.3f, StripY + Range(-25f, 25f)),
-                    new Vector2(x, StripY + Range(-20f, 20f)),
-                    new Vector2(x + Range(-jitter, jitter), -60f),
-                    new Vector2(x + Range(-jitter, jitter), RightTop - 30f),
+                    new Vector2(l.center.x + Range(-jl, jl), Mathf.Lerp(l.yMin, l.yMax, 0.92f)),
+                    new Vector2(l.center.x + Range(-jl, jl), Mathf.Lerp(l.yMin, l.yMax, 0.62f)),
+                    new Vector2(l.center.x + Range(-jl, jl), Mathf.Lerp(l.yMin, l.yMax, 0.32f)),
+                    new Vector2(l.center.x, y + Range(-20f, 20f)),
+                    new Vector2(Mathf.Lerp(l.center.x, r.center.x, 1f / 3f), y + Range(-25f, 25f)),
+                    new Vector2(Mathf.Lerp(l.center.x, r.center.x, 2f / 3f), y + Range(-25f, 25f)),
+                    new Vector2(r.center.x, y + Range(-20f, 20f)),
+                    new Vector2(r.center.x + Range(-jr, jr), Mathf.Lerp(r.yMin, r.yMax, 0.45f)),
+                    new Vector2(r.center.x + Range(-jr, jr), Mathf.Lerp(r.yMin, r.yMax, 0.92f)),
                 };
                 _at = new float[_points.Length];
                 Shape dashes = Draw();
@@ -345,7 +415,7 @@ namespace StartupProgress
             }
         }
 
-        /// <summary>Records: a page of document text either side, a redaction bar landing on another as the load goes.</summary>
+        /// <summary>Records: a page of document text in each zone, a redaction bar landing on another as the load goes.</summary>
         private sealed class RedactedText : Ambient
         {
             private readonly List<Vector4> _bars = new List<Vector4>();
@@ -357,10 +427,10 @@ namespace StartupProgress
                 Shape text = Draw();
                 for (int s = 0; s < 2; s++)
                 {
-                    int side = s == 0 ? -1 : 1;
-                    float left = side < 0 ? -Out + 10f : In + 10f;
-                    float right = left + ZoneW - 20f;
-                    for (float y = Top(side) - 20f; y > Floor + 10f; y -= 26f)
+                    Rect zone = Zone(s);
+                    float left = zone.xMin + 10f;
+                    float right = zone.xMax - 10f;
+                    for (float y = zone.yMax - 20f; y > zone.yMin + 10f; y -= 26f)
                     {
                         // Now and then a short line ends a paragraph.
                         float end = Rng.NextDouble() < 0.15 ? Mathf.Lerp(left, right, Range(0.3f, 0.7f)) : right;
@@ -406,8 +476,8 @@ namespace StartupProgress
         }
 
         /// <summary>
-        /// Legal: the company seal, embossed faintly to the left of the terminal. Its outer ring
-        /// presses in round the circle as the load goes, and the lettering on its rim appears with it.
+        /// Legal: the company seal, embossed faintly in the taller zone. Its outer ring presses in
+        /// round the circle as the load goes, and the lettering on its rim appears with it.
         /// </summary>
         private sealed class CompanySeal : Ambient
         {
@@ -421,10 +491,11 @@ namespace StartupProgress
             protected override void Build()
             {
                 // Sized to the zone; everything on it scales with the radius.
-                _r = Mathf.Min(200f, ZoneW * 0.4f);
+                Rect zone = Tall;
+                _r = Mathf.Min(200f, zone.width * 0.4f, zone.height * 0.4f);
                 float k = _r / 220f;
-                float x = -ZoneX;
-                float y = (LeftTop + Floor) * 0.5f;
+                float x = zone.center.x;
+                float y = zone.center.y;
                 Shape seal = Draw(x, y);
                 seal.Arc((_r + 26f * k) * U, 1.5f * U, 0f, 360f, Soft);
                 seal.Arc((_r - 30f * k) * U, 2f * U, 0f, 360f, Soft);
@@ -476,7 +547,7 @@ namespace StartupProgress
             }
         }
 
-        /// <summary>Executive: a quarterly bar chart either side, its bars rising with the load, left to right.</summary>
+        /// <summary>Executive: a quarterly bar chart in each zone, its bars rising with the load, left to right.</summary>
         private sealed class QuarterlyBars : Ambient
         {
             private readonly List<Image> _bars = new List<Image>();
@@ -484,16 +555,17 @@ namespace StartupProgress
 
             protected override void Build()
             {
-                int perSide = Mathf.Max(4, Mathf.RoundToInt(ZoneW / 56f));
-                float slot = ZoneW * 0.9f / perSide;
-                float tallest = RightTop - Floor - 30f;
+                float tallest = Mathf.Min(Lz.height, Rz.height) - 30f;
                 float trend = 0.2f;
                 Shape axis = Draw();
                 for (int s = 0; s < 2; s++)
                 {
-                    float left = (s == 0 ? -Out : In) + ZoneW * 0.05f;
-                    axis.Line(P(left, Floor), P(left + ZoneW * 0.9f, Floor), 1.5f * U, Soft);
-                    for (int i = 0; i < perSide; i++)
+                    Rect zone = Zone(s);
+                    int count = Mathf.Max(4, Mathf.RoundToInt(zone.width / 56f));
+                    float slot = zone.width * 0.9f / count;
+                    float left = zone.xMin + zone.width * 0.05f;
+                    axis.Line(P(left, zone.yMin), P(left + zone.width * 0.9f, zone.yMin), 1.5f * U, Soft);
+                    for (int i = 0; i < count; i++)
                     {
                         trend = Mathf.Clamp(trend + Range(-0.06f, 0.14f), 0.12f, 1f);
                         _heights.Add(trend * tallest);
@@ -501,7 +573,7 @@ namespace StartupProgress
                         RectTransform rect = bar.rectTransform;
                         rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
                         rect.pivot = new Vector2(0.5f, 0f);
-                        rect.anchoredPosition = P(left + slot * (i + 0.5f), Floor);
+                        rect.anchoredPosition = P(left + slot * (i + 0.5f), zone.yMin);
                         rect.sizeDelta = new Vector2(Mathf.Round(slot * 0.6f * U), 0f);
                         _bars.Add(bar);
                     }
@@ -526,25 +598,41 @@ namespace StartupProgress
         }
 
         /// <summary>
-        /// Internal Affairs: a fingerprint to the left of the terminal, a scan line passing over
-        /// it. The print is a picture (Resources/fingerprint.png, made by scripts/fingerprint.py
-        /// the way synthetic fingerprint datasets are, not taken from a real person), white with
-        /// the ridges in its alpha, tinted to the department.
+        /// Internal Affairs: a fingerprint in the taller zone, a scan line passing over it, and an
+        /// investigation board in the other: photos pinned up round the subject, string run
+        /// between them as the load goes, the subject circled at the end. The print is a picture
+        /// (Resources/fingerprint.png, made by scripts/fingerprint.py the way synthetic
+        /// fingerprint datasets are, not taken from a real person), white with the ridges in its
+        /// alpha, tinted to the department.
         /// </summary>
         private sealed class Fingerprint : Ambient
         {
             private const float Aspect = 440f / 560f;
+            private const float CardW = 72f;
+            private const float CardH = 90f;
             private static Texture2D _texture;
             private Image _scan;
             private float _x;
             private float _y;
             private float _h;
+            private Vector2[] _pins;
+            private int[][] _links;
+            private Shape _strings;
+            private Shape _ring;
+            private float _ringR;
+            private int _drawn = -1;
 
             protected override void Build()
             {
-                _x = -ZoneX;
-                _y = (LeftTop + Floor) * 0.5f;
-                _h = Mathf.Min(520f, (LeftTop - Floor) * 0.75f, ZoneW * 0.9f / Aspect);
+                BuildPrint(Tall);
+                BuildBoard(Other);
+            }
+
+            private void BuildPrint(Rect zone)
+            {
+                _x = zone.center.x;
+                _y = zone.center.y;
+                _h = Mathf.Min(520f, zone.height * 0.75f, zone.width * 0.9f / Aspect);
                 float w = _h * Aspect;
                 Texture2D texture = Texture();
                 if (texture != null)
@@ -553,6 +641,54 @@ namespace StartupProgress
                     Place(print.rectTransform, _x * U, _y * U, w * U, _h * U);
                 }
                 _scan = Box(_x, _y, w * 1.15f, 2f, A(T.Accent, 70));
+            }
+
+            /// <summary>Five photos, the subject larger in the middle, each with a pin and a redacted name.</summary>
+            private void BuildBoard(Rect zone)
+            {
+                float cx = zone.center.x;
+                float cy = zone.center.y;
+                float dx = zone.width * 0.3f;
+                float dy = zone.height * 0.3f;
+                // Smaller cards in a smaller zone, so none overlap.
+                float scale = Mathf.Clamp(Mathf.Min(zone.height / 560f, zone.width / 500f), 0.55f, 1.1f);
+                float jx = 15f * scale;
+                float jy = 15f * scale;
+                var cards = new[]
+                {
+                    new Vector2(cx, cy),
+                    new Vector2(cx - dx + Range(-jx, jx), cy + dy + Range(-jy, 0f)),
+                    new Vector2(cx + dx + Range(-jx, jx), cy + dy + Range(-jy, 0f)),
+                    new Vector2(cx + dx + Range(-jx, jx), cy - dy + Range(0f, jy)),
+                    new Vector2(cx - dx + Range(-jx, jx), cy - dy + Range(0f, jy)),
+                };
+                Shape board = Draw();
+                _pins = new Vector2[cards.Length];
+                for (int i = 0; i < cards.Length; i++)
+                {
+                    float k = (i == 0 ? 1.25f : 1f) * scale;
+                    float w = CardW * k;
+                    float h = CardH * k;
+                    Vector2 c = cards[i];
+                    board.RoundedRect(P(c.x, c.y), w * U, h * U, 2f * U, A(T.Accent, 12));
+                    Outline(board, c.x, c.y, w, h, 1.5f, Soft);
+                    float photo = w - 12f * k;
+                    float photoY = c.y + h * 0.5f - 6f * k - photo * 0.5f;
+                    board.RoundedRect(P(c.x, photoY), photo * U, photo * U, U, A(T.Accent, 14));
+                    Person(board, c.x, photoY, photo, A(T.Accent, 40));
+                    // The name, redacted.
+                    float nameY = c.y - h * 0.5f + 11f * k;
+                    board.Line(P(c.x - w * 0.3f, nameY), P(c.x + w * 0.3f, nameY), 7f * k * U, A(new Color32(0, 0, 0, 255), 150));
+                    _pins[i] = new Vector2(c.x, c.y + h * 0.5f - 3f);
+                    board.Disc(P(_pins[i].x, _pins[i].y), 4f * U, A(T.Warn, 150));
+                }
+                board.Commit();
+
+                // Every photo to the subject, then two between the others.
+                _links = new[] { new[] { 0, 1 }, new[] { 0, 3 }, new[] { 0, 2 }, new[] { 1, 2 }, new[] { 0, 4 }, new[] { 3, 4 } };
+                _strings = Draw();
+                _ring = Draw(cards[0].x, cards[0].y);
+                _ringR = CardH * 1.25f * scale * 0.68f;
             }
 
             /// <summary>The print, read from the plugin once and kept.</summary>
@@ -564,7 +700,7 @@ namespace StartupProgress
                 }
                 try
                 {
-                    using (Stream stream = typeof(TerraOverlay).Assembly.GetManifestResourceStream("StartupProgress.fingerprint.png"))
+                    using (Stream stream = typeof(TerraOverlay).Assembly.GetManifestResourceStream("ACCESSGRANTED.fingerprint.png"))
                     {
                         if (stream == null)
                         {
@@ -603,10 +739,34 @@ namespace StartupProgress
             internal override void Animate(float t)
             {
                 _scan.rectTransform.anchoredPosition = P(_x, _y + Mathf.Sin(t * 0.6f) * _h * 0.46f);
+
+                // The string runs out link by link over the first 85% of the load; then the subject is circled.
+                int step = Mathf.FloorToInt(Progress * 400f);
+                if (step == _drawn)
+                {
+                    return;
+                }
+                _drawn = step;
+                float strung = Mathf.Clamp01(Progress / 0.85f) * _links.Length;
+                _strings.Clear();
+                for (int i = 0; i < _links.Length && i < strung; i++)
+                {
+                    Vector2 a = _pins[_links[i][0]];
+                    Vector2 b = Vector2.Lerp(a, _pins[_links[i][1]], Mathf.Clamp01(strung - i));
+                    _strings.Line(P(a.x, a.y), P(b.x, b.y), 1.5f * U, A(T.Warn, 90));
+                }
+                _strings.Commit();
+                float ring = Mathf.Clamp01((Progress - 0.85f) / 0.15f);
+                _ring.Clear();
+                if (ring > 0f)
+                {
+                    _ring.Arc(_ringR * U, 2.5f * U, -40f, 360f * ring, A(T.Warn, 120));
+                }
+                _ring.Commit();
             }
         }
 
-        /// <summary>IT: a network either side and along the strip, packets travelling between its nodes.</summary>
+        /// <summary>IT: a network in each zone and along the strip, packets travelling between its nodes.</summary>
         private sealed class NetworkMap : Ambient
         {
             private const int Packets = 10;
@@ -620,12 +780,12 @@ namespace StartupProgress
             protected override void Build()
             {
                 // Three separate networks, one per area, so no link crosses the text; a node
-                // where each side zone meets the strip belongs to both and joins them up.
-                int left = Area(-Out + 20f, -In - 20f, Floor + 20f, LeftTop - 20f, 9);
-                int right = Area(In + 20f, Out - 20f, Floor + 20f, RightTop - 20f, 7);
-                int stripEnd = Area(-StripHalf + 20f, StripHalf - 20f, StripBottom + 14f, StripTop - 14f, Mathf.Max(5, Mathf.RoundToInt(StripHalf / 110f)));
-                _nodes.Add(new Vector2(-ZoneX, StripY));
-                _nodes.Add(new Vector2(ZoneX, StripY));
+                // where each zone meets the strip belongs to both and joins them up.
+                int left = Area(Lz, 20f);
+                int right = Area(Rz, 20f);
+                int stripEnd = Area(Sz, 14f);
+                _nodes.Add(new Vector2(Lz.center.x, Sz.center.y));
+                _nodes.Add(new Vector2(Rz.center.x, Sz.center.y));
                 Link(stripEnd, Nearest(_nodes[stripEnd], 0, left));
                 Link(stripEnd + 1, Nearest(_nodes[stripEnd + 1], left, right));
                 Link(stripEnd, Nearest(_nodes[stripEnd], right, stripEnd));
@@ -654,12 +814,13 @@ namespace StartupProgress
                 }
             }
 
-            /// <summary>Scatters nodes in a box; returns the index after the last.</summary>
-            private int Area(float x0, float x1, float y0, float y1, int count)
+            /// <summary>Scatters nodes in an area, by its size; returns the index after the last.</summary>
+            private int Area(Rect area, float inset)
             {
+                int count = Mathf.Clamp(Mathf.RoundToInt(area.width * area.height / 32000f), 4, 10);
                 for (int i = 0; i < count; i++)
                 {
-                    _nodes.Add(new Vector2(Range(x0, x1), Range(y0, y1)));
+                    _nodes.Add(new Vector2(Range(area.xMin + inset, area.xMax - inset), Range(area.yMin + inset, area.yMax - inset)));
                 }
                 return _nodes.Count;
             }
@@ -735,91 +896,144 @@ namespace StartupProgress
             }
         }
 
-        /// <summary>HR: an organisation chart either side, its positions filled one by one as the load goes.</summary>
+        /// <summary>
+        /// HR: an organisation chart in each zone, staff photo cards whose vacancies fill one by
+        /// one as the load goes, and a headcount row along the strip filling with it.
+        /// </summary>
         private sealed class OrgChart : Ambient
         {
-            private const float BoxH = 28f;
-            private const float Step = 112f;
-            private readonly List<Vector2> _boxes = new List<Vector2>();
+            private const float Icon = 26f;
+            private const float IconStep = 24f;
+            // x, y, width, height of each card, in the order they fill.
+            private readonly List<Vector4> _cards = new List<Vector4>();
+            private Vector2 _headcountStart;
+            private int _headcount;
             private Shape _filled;
-            private float _boxW;
+            private Shape _hired;
             private int _drawn = -1;
+            private int _hiredDrawn = -1;
 
             protected override void Build()
             {
-                float spacing = ZoneW * 0.9f / 4f;
-                _boxW = Mathf.Min(66f, spacing - 10f);
-                float top = RightTop - 50f;
+                // Both charts from the same height, so they sit level. Where there is room they
+                // stop above the strip and the headcount runs along it; where not, they take the
+                // whole zone and there is no headcount.
+                float top = Mathf.Min(Lz.yMax, Rz.yMax);
+                bool headcount = top - Sz.yMax >= 260f;
+                float floor = headcount ? Sz.yMax + 10f : Mathf.Max(Lz.yMin, Rz.yMin);
                 Shape chart = Draw();
-                // Both charts' positions, a level at a time, so they fill side by side.
-                var levels = new List<Vector2>[4];
+                var levels = new List<Vector4>[4];
                 for (int l = 0; l < levels.Length; l++)
                 {
-                    levels[l] = new List<Vector2>();
+                    levels[l] = new List<Vector4>();
                 }
                 for (int s = 0; s < 2; s++)
                 {
-                    float cx = s == 0 ? -ZoneX : ZoneX;
-                    Vector2 head = new Vector2(cx, top);
+                    Rect zone = Zone(s);
+                    float height = top - floor;
+                    int depth = height >= 380f ? 4 : 3;
+                    float spacing = zone.width * 0.9f / 4f;
+                    float step = Mathf.Min(112f, (height - 40f) / (depth - 1 + 0.9f));
+                    float w = Mathf.Min(58f, spacing - 12f);
+                    float h = Mathf.Min(w * 1.1f, step - 24f);
+                    float cx = zone.center.x;
+                    float y0 = top - 20f - h * 0.5f;
+                    var head = new Vector4(cx, y0, w, h);
                     levels[0].Add(head);
                     for (int m = 0; m < 2; m++)
                     {
-                        Vector2 manager = new Vector2(cx + (m == 0 ? -1f : 1f) * spacing, top - Step);
+                        var manager = new Vector4(cx + (m == 0 ? -1f : 1f) * spacing, y0 - step, w, h);
                         levels[1].Add(manager);
                         Connect(chart, head, manager);
                         for (int r = 0; r < 2; r++)
                         {
-                            Vector2 report = new Vector2(manager.x + (r == 0 ? -0.5f : 0.5f) * spacing, top - 2f * Step);
-                            Vector2 junior = new Vector2(report.x, top - 3f * Step);
+                            var report = new Vector4(manager.x + (r == 0 ? -0.5f : 0.5f) * spacing, y0 - 2f * step, w, h);
                             levels[2].Add(report);
-                            levels[3].Add(junior);
                             Connect(chart, manager, report);
-                            Connect(chart, report, junior);
+                            if (depth == 4)
+                            {
+                                var junior = new Vector4(report.x, y0 - 3f * step, w, h);
+                                levels[3].Add(junior);
+                                Connect(chart, report, junior);
+                            }
                         }
                     }
                 }
-                foreach (List<Vector2> level in levels)
+                foreach (List<Vector4> level in levels)
                 {
-                    foreach (Vector2 box in level)
+                    foreach (Vector4 card in level)
                     {
-                        _boxes.Add(box);
-                        Outline(chart, box.x, box.y, _boxW, BoxH, 1.5f, Line);
+                        _cards.Add(card);
+                        // A vacancy: the outline and a faint silhouette.
+                        Outline(chart, card.x, card.y, card.z, card.w, 1.5f, Soft);
+                        float photo = Mathf.Min(card.z - 10f, card.w - 16f);
+                        Person(chart, card.x, PhotoY(card, photo), photo, A(T.Accent, 16));
                     }
+                }
+
+                // The headcount: a row of figures along the strip.
+                Rect strip = Sz;
+                _headcount = headcount ? Mathf.Max(0, Mathf.FloorToInt((strip.width - 20f) / IconStep)) : 0;
+                _headcountStart = new Vector2(strip.center.x - (_headcount - 1) * IconStep * 0.5f, strip.center.y);
+                for (int i = 0; i < _headcount; i++)
+                {
+                    Person(chart, _headcountStart.x + i * IconStep, _headcountStart.y, Icon, A(T.Accent, 16));
                 }
                 chart.Commit();
                 _filled = Draw();
+                _hired = Draw();
             }
 
-            /// <summary>An elbow line from a box's bottom to the top of one below it.</summary>
-            private void Connect(Shape chart, Vector2 from, Vector2 to)
+            private static float PhotoY(Vector4 card, float photo) => card.y + card.w * 0.5f - 5f - photo * 0.5f;
+
+            /// <summary>An elbow line from a card's bottom to the top of one below it.</summary>
+            private void Connect(Shape chart, Vector4 from, Vector4 to)
             {
-                float mid = (from.y - BoxH * 0.5f + to.y + BoxH * 0.5f) * 0.5f;
-                chart.Line(P(from.x, from.y - BoxH * 0.5f), P(from.x, mid), U, Soft);
+                float bottom = from.y - from.w * 0.5f;
+                float topOf = to.y + to.w * 0.5f;
+                float mid = (bottom + topOf) * 0.5f;
+                chart.Line(P(from.x, bottom), P(from.x, mid), U, Soft);
                 chart.Line(P(from.x, mid), P(to.x, mid), U, Soft);
-                chart.Line(P(to.x, mid), P(to.x, to.y + BoxH * 0.5f), U, Soft);
+                chart.Line(P(to.x, mid), P(to.x, topOf), U, Soft);
             }
 
             internal override void Animate(float t)
             {
-                int count = Mathf.FloorToInt(Progress * _boxes.Count);
-                if (count == _drawn)
+                int count = Mathf.FloorToInt(Progress * _cards.Count);
+                if (count != _drawn)
                 {
-                    return;
+                    _drawn = count;
+                    _filled.Clear();
+                    for (int i = 0; i < count; i++)
+                    {
+                        Vector4 card = _cards[i];
+                        _filled.RoundedRect(P(card.x, card.y), (card.z - 3f) * U, (card.w - 3f) * U, 2f * U, A(T.Accent, 22));
+                        float photo = Mathf.Min(card.z - 10f, card.w - 16f);
+                        Person(_filled, card.x, PhotoY(card, photo), photo, A(T.Accent, 75));
+                        float nameY = card.y - card.w * 0.5f + 6f;
+                        _filled.Line(P(card.x - card.z * 0.3f, nameY), P(card.x + card.z * 0.3f, nameY), 3f * U, A(T.Accent, 60));
+                    }
+                    _filled.Commit();
                 }
-                _drawn = count;
-                _filled.Clear();
-                for (int i = 0; i < count; i++)
+
+                int hired = Mathf.FloorToInt(Progress * _headcount);
+                if (hired != _hiredDrawn)
                 {
-                    _filled.RoundedRect(P(_boxes[i].x, _boxes[i].y), (_boxW - 4f) * U, (BoxH - 4f) * U, 2f * U, A(T.Accent, 40));
+                    _hiredDrawn = hired;
+                    _hired.Clear();
+                    for (int i = 0; i < hired; i++)
+                    {
+                        Person(_hired, _headcountStart.x + i * IconStep, _headcountStart.y, Icon, A(T.Accent, 60));
+                    }
+                    _hired.Commit();
                 }
-                _filled.Commit();
             }
         }
 
         /// <summary>
-        /// Facilities: the building's service pipework, a schematic. Two pipes come down the left,
-        /// run along the strip and go up the right, with flanges, valves and a pressure gauge at
-        /// each end; the flow in them quickens and the gauges climb as the load goes.
+        /// Facilities: the building's service pipework, a schematic. Two pipes come down the left
+        /// zone, run along the strip and go up the right one, with flanges, valves and a pressure
+        /// gauge at each end; the flow in them quickens and the gauges climb as the load goes.
         /// </summary>
         private sealed class Pipework : Ambient
         {
@@ -834,12 +1048,18 @@ namespace StartupProgress
             protected override void Build()
             {
                 // Nested, so neither pipe crosses the other: the inner one turns higher up.
-                float inner = In + ZoneW * 0.3f;
-                float outer = In + ZoneW * 0.72f;
-                float innerY = StripTop - 22f;
-                float outerY = StripBottom + 22f;
-                AddRun(new[] { new Vector2(-inner, LeftTop - 30f - Gauge), new Vector2(-inner, innerY), new Vector2(inner, innerY), new Vector2(inner, RightTop - 30f - Gauge) });
-                AddRun(new[] { new Vector2(-outer, LeftTop - 30f - Gauge), new Vector2(-outer, outerY), new Vector2(outer, outerY), new Vector2(outer, RightTop - 30f - Gauge) });
+                Rect l = Lz;
+                Rect r = Rz;
+                float leftInner = l.xMax - l.width * 0.3f;
+                float leftOuter = l.xMax - l.width * 0.72f;
+                float rightInner = r.xMin + r.width * 0.3f;
+                float rightOuter = r.xMin + r.width * 0.72f;
+                float leftTop = l.yMax - 30f - Gauge;
+                float rightTop = r.yMax - 30f - Gauge;
+                float innerY = Sz.yMax - 22f;
+                float outerY = Sz.yMin + 22f;
+                AddRun(new[] { new Vector2(leftInner, leftTop), new Vector2(leftInner, innerY), new Vector2(rightInner, innerY), new Vector2(rightInner, rightTop) });
+                AddRun(new[] { new Vector2(leftOuter, leftTop), new Vector2(leftOuter, outerY), new Vector2(rightOuter, outerY), new Vector2(rightOuter, rightTop) });
 
                 Shape pipes = Draw();
                 foreach (Vector2[] run in _runs)
@@ -853,9 +1073,9 @@ namespace StartupProgress
                         pipes.Line(P(a.x, a.y), P(b.x, b.y), 10f * U, A(T.Accent, 16));
                         Flanges(pipes, run[i], run[i + 1]);
                     }
-                    // A valve halfway down each upright.
-                    Valve(pipes, Vector2.Lerp(run[0], run[1], 0.45f));
-                    Valve(pipes, Vector2.Lerp(run[3], run[2], 0.45f));
+                    // A valve halfway down each upright, its wheel towards the middle.
+                    Valve(pipes, Vector2.Lerp(run[0], run[1], 0.45f), 1f);
+                    Valve(pipes, Vector2.Lerp(run[3], run[2], 0.45f), -1f);
                     // A gauge on top of each upright.
                     GaugeAt(run[0] + new Vector2(0f, Gauge));
                     GaugeAt(run[3] + new Vector2(0f, Gauge));
@@ -892,12 +1112,11 @@ namespace StartupProgress
             }
 
             /// <summary>A gate valve on an upright: two triangles tip to tip, its wheel to one side.</summary>
-            private void Valve(Shape pipes, Vector2 at)
+            private void Valve(Shape pipes, Vector2 at, float side)
             {
                 float s = 11f;
                 pipes.Tri(P(at.x - s, at.y + s), P(at.x + s, at.y + s), P(at.x, at.y), Line);
                 pipes.Tri(P(at.x - s, at.y - s), P(at.x + s, at.y - s), P(at.x, at.y), Line);
-                float side = at.x < 0f ? 1f : -1f;
                 pipes.Line(P(at.x, at.y), P(at.x + side * 20f, at.y), 1.5f * U, Line);
                 pipes.Line(P(at.x + side * 20f, at.y - 9f), P(at.x + side * 20f, at.y + 9f), 2f * U, Line);
             }
@@ -972,11 +1191,14 @@ namespace StartupProgress
         {
             private Image[] _bars;
             private float[] _seed;
+            private float _tallest;
 
             protected override void Build()
             {
-                int count = Mathf.FloorToInt(StripHalf * 2f / 14f);
-                float left = -(count - 1) * 7f;
+                Rect strip = Sz;
+                _tallest = strip.height - 10f;
+                int count = Mathf.FloorToInt(strip.width / 14f);
+                float left = strip.center.x - (count - 1) * 7f;
                 _bars = new Image[count];
                 _seed = new float[count];
                 for (int i = 0; i < count; i++)
@@ -984,7 +1206,7 @@ namespace StartupProgress
                     Image bar = _bars[i] = MakeImage("Level", R, A(T.Accent, 26));
                     RectTransform rect = bar.rectTransform;
                     rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-                    rect.anchoredPosition = P(left + i * 14f, StripY);
+                    rect.anchoredPosition = P(left + i * 14f, strip.center.y);
                     rect.sizeDelta = new Vector2(Mathf.Round(6f * U), 0f);
                     _seed[i] = Range(0f, 10f);
                 }
@@ -994,12 +1216,11 @@ namespace StartupProgress
             {
                 // Speech-like: a slow envelope over quicker syllables, symmetric about the line.
                 float envelope = 0.5f + 0.5f * Mathf.Sin(t * 0.9f);
-                float tallest = StripH - 10f;
                 for (int i = 0; i < _bars.Length; i++)
                 {
                     float s = _seed[i];
                     float level = Mathf.Abs(Mathf.Sin(t * 3.1f + s) * Mathf.Sin(t * 1.7f + i * 0.21f)) * (0.35f + 0.65f * envelope);
-                    _bars[i].rectTransform.sizeDelta = new Vector2(_bars[i].rectTransform.sizeDelta.x, Mathf.Round((6f + level * (tallest - 6f)) * U));
+                    _bars[i].rectTransform.sizeDelta = new Vector2(_bars[i].rectTransform.sizeDelta.x, Mathf.Round((6f + level * (_tallest - 6f)) * U));
                 }
             }
         }

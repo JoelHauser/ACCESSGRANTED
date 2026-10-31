@@ -3,7 +3,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// Replaces the bare "Loading profile data..." wait with a TerraGroup terminal showing what
@@ -12,10 +12,10 @@ namespace StartupProgress
     /// and <see cref="TerraOverlay"/> for the drawing.
     /// </summary>
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    public class StartupProgressPlugin : BaseUnityPlugin
+    public class AccessGrantedPlugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "com.mybutthasarash.startupprogress";
-        public const string PluginName = "Startup Progress";
+        public const string PluginGuid = "com.mybutthasarash.accessgranted";
+        public const string PluginName = "ACCESS GRANTED";
 
         /// <summary>Must match the csproj's Version. Two places, and they have to agree.</summary>
         public const string PluginVersion = "0.3.0";
@@ -43,9 +43,13 @@ namespace StartupProgress
             TerraOverlay.PreviewInput();
         }
 
+        /// <summary>The plugin's GUID while it was called Startup Progress.</summary>
+        private const string OldGuid = "com.mybutthasarash.startupprogress";
+
         private void Awake()
         {
             Log = Logger;
+            CarryOverOldFiles();
 
             Enabled = Config.Bind("General", "Enabled", true,
                 "Show the TerraGroup loading terminal instead of the plain loading text.");
@@ -67,7 +71,7 @@ namespace StartupProgress
                 "How the screen leaves for the main menu. Random lets each department pick one of its own.");
             CctvScreenshots = Config.Bind("Style", "CCTV Shows My Screenshots", true,
                 "Security's camera wall plays your own game screenshots as grey security footage. They are only read "
-                + "from your screenshot folders and shrunk into BepInEx/cache/StartupProgress; nothing leaves your PC.");
+                + "from your screenshot folders and shrunk into BepInEx/cache/ACCESSGRANTED; nothing leaves your PC.");
             PreviewKey = Config.Bind("Preview", "Preview Key", new KeyboardShortcut(UnityEngine.KeyCode.F9, UnityEngine.KeyCode.LeftControl),
                 "In the main menu, plays the terminal with a pretend load. While it shows: Left/Right change department, "
                 + "Up/Down change layout, Space re-rolls the rest, R replays, Esc closes.");
@@ -80,6 +84,37 @@ namespace StartupProgress
             if (splash != null)
             {
                 Patches.SplashAwake(splash);
+            }
+        }
+
+        /// <summary>
+        /// The settings and launch timings are named after the GUID, which changed with the rename
+        /// from Startup Progress. Copies the old files once, where there are no new ones yet, so a
+        /// player keeps their settings and the progress bar keeps its baseline. The old files are
+        /// left where they are.
+        /// </summary>
+        private void CarryOverOldFiles()
+        {
+            try
+            {
+                string oldConfig = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, OldGuid + ".cfg");
+                if (!System.IO.File.Exists(Config.ConfigFilePath) && System.IO.File.Exists(oldConfig))
+                {
+                    System.IO.File.Copy(oldConfig, Config.ConfigFilePath);
+                    Config.Reload();
+                    Log.LogInfo("Carried over the settings from Startup Progress.");
+                }
+                string oldTimings = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, OldGuid + ".timings.txt");
+                string timings = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, PluginGuid + ".timings.txt");
+                if (!System.IO.File.Exists(timings) && System.IO.File.Exists(oldTimings))
+                {
+                    System.IO.File.Copy(oldTimings, timings);
+                    Log.LogInfo("Carried over the launch timings from Startup Progress.");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Log.LogWarning("Could not carry over Startup Progress's settings or timings: " + e.Message);
             }
         }
     }

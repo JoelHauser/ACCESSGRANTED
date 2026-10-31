@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// Departments with a scene of their own: instead of the shared dashboard, the whole screen

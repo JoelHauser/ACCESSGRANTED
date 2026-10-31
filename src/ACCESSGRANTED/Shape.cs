@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// A UI graphic made of flat polygons: the emblem, the rings and the corner brackets.

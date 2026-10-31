@@ -5,7 +5,7 @@ using EFT;
 using EFT.UI;
 using HarmonyLib;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// Prefixes on the start of each load step. All the async ones are patched on the method that
@@ -26,7 +26,7 @@ namespace StartupProgress
             }
             else
             {
-                StartupProgressPlugin.Log.LogWarning("SplashScreenPanel.Awake not found; the game's splash will show before the terminal.");
+                AccessGrantedPlugin.Log.LogWarning("SplashScreenPanel.Awake not found; the game's splash will show before the terminal.");
             }
 
             Prefix(harmony, AccessTools.Method(typeof(TarkovApplication).BaseType, nameof(TarkovApplication.RunFilesChecking)), nameof(VerifyFiles));
@@ -59,7 +59,7 @@ namespace StartupProgress
             MethodInfo show = AccessTools.Method(typeof(ProfileLoadingScreen), nameof(ProfileLoadingScreen.Show), new[] { typeof(bool) });
             if (show == null)
             {
-                StartupProgressPlugin.Log.LogError("ProfileLoadingScreen.Show(bool) not found; the readout will not appear.");
+                AccessGrantedPlugin.Log.LogError("ProfileLoadingScreen.Show(bool) not found; the readout will not appear.");
                 return;
             }
             harmony.Patch(show, postfix: new HarmonyMethod(typeof(Patches), nameof(ScreenShown)));
@@ -70,7 +70,7 @@ namespace StartupProgress
             if (target == null)
             {
                 // A missing step is only a gap in the list, not a reason to lose the rest.
-                StartupProgressPlugin.Log.LogWarning($"No method found for step '{prefix}'; it will show as skipped.");
+                AccessGrantedPlugin.Log.LogWarning($"No method found for step '{prefix}'; it will show as skipped.");
                 return;
             }
             harmony.Patch(target, prefix: new HarmonyMethod(typeof(Patches), prefix));
@@ -78,7 +78,7 @@ namespace StartupProgress
 
         private static void ScreenShown(ProfileLoadingScreen __instance, bool loading)
         {
-            if (!loading || !StartupProgressPlugin.Enabled.Value)
+            if (!loading || !AccessGrantedPlugin.Enabled.Value)
             {
                 return;
             }
@@ -94,7 +94,7 @@ namespace StartupProgress
         /// </summary>
         internal static void SplashAwake(SplashScreenPanel __instance)
         {
-            if (!StartupProgressPlugin.Enabled.Value || __instance == null)
+            if (!AccessGrantedPlugin.Enabled.Value || __instance == null)
             {
                 return;
             }
@@ -151,7 +151,7 @@ namespace StartupProgress
             }
             catch (Exception e)
             {
-                StartupProgressPlugin.Log.LogDebug($"No profile detail: {e.Message}");
+                AccessGrantedPlugin.Log.LogDebug($"No profile detail: {e.Message}");
             }
         }
 

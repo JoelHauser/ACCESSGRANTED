@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     internal partial class TerraOverlay
     {

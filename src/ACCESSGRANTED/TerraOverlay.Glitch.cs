@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// The terminal's glitches, and the closing ACCESS GRANTED sequence they dress up.

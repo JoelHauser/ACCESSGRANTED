@@ -3,12 +3,12 @@
   <PropertyGroup>
     <!-- net472 because that is what the game's mono runtime loads. -->
     <TargetFramework>net472</TargetFramework>
-    <RootNamespace>StartupProgress</RootNamespace>
-    <AssemblyName>StartupProgress</AssemblyName>
+    <RootNamespace>ACCESSGRANTED</RootNamespace>
+    <AssemblyName>ACCESSGRANTED</AssemblyName>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
 
-    <!-- Must match StartupProgressPlugin.PluginVersion. -->
+    <!-- Must match AccessGrantedPlugin.PluginVersion. -->
     <Version>0.3.0</Version>
 
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -109,7 +109,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\fingerprint.png" LogicalName="StartupProgress.fingerprint.png" />
+    <EmbeddedResource Include="Resources\fingerprint.png" LogicalName="ACCESSGRANTED.fingerprint.png" />
   </ItemGroup>
 
   <!-- Opt-in: dotnet build -c Release -p:DeployToSPT=true -->

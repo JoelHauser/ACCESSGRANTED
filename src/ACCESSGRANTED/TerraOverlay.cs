@@ -7,7 +7,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// A full-screen TerraGroup terminal over the game's whole launch: it comes up in place of the
@@ -132,6 +132,8 @@ namespace StartupProgress
             new Vector2(-1f, -1f).normalized, new Vector2(1f, -1f).normalized
         };
         private RawImage _emblemGlow;
+        private RawImage _grainLayer;
+        private RawImage _emblemGrain;
         private Shape _ringTrack;
         private Shape _ringProgress;
         private float _ringProgressDrawn = -1f;
@@ -228,7 +230,7 @@ namespace StartupProgress
             _instance.Roll();
             var clock = System.Diagnostics.Stopwatch.StartNew();
             _instance.Build(font, material);
-            StartupProgressPlugin.Log.LogInfo($"Terminal built in {clock.Elapsed.TotalMilliseconds:0.0} ms.");
+            AccessGrantedPlugin.Log.LogInfo($"Terminal built in {clock.Elapsed.TotalMilliseconds:0.0} ms.");
         }
 
         /// <summary>
@@ -319,6 +321,9 @@ namespace StartupProgress
             _glow = MakeRaw("Glow", c, Art.Radial, Glow);
             _grid = MakeRaw("Backdrop", c, Art.Dots, Accent);
             Stretch(_grid.rectTransform);
+            // Over the glows, under everything drawn on them (it would speckle bright text); see Art.Grain.
+            _grainLayer = MakeRaw("Grain", c, Art.Grain, Color.white);
+            Stretch(_grainLayer.rectTransform);
             Isolate(_glow);
             Isolate(_grid);
             BuildBackdropExtras(c);
@@ -328,6 +333,7 @@ namespace StartupProgress
             Isolate(_emblem);
             _emblemGlow = MakeRaw("EmblemGlow", _emblem, Art.Radial, Primary);
             _alertGlow = MakeRaw("AlertGlow", _emblem, Art.Radial, Warn);
+            _emblemGrain = MakeRaw("Grain", _emblem, Art.Grain, Color.white);
             _ringTrack = Shape.Create("RingTrack", _emblem);
             _ringProgress = Shape.Create("RingProgress", _emblem);
             for (int i = 0; i < _frameParts.Length; i++)
@@ -449,7 +455,7 @@ namespace StartupProgress
             // A preview brings its own roll, picked with the preview's keys.
             _variant = _previewing && _previewVariant != null
                 ? _previewVariant
-                : Variant.Roll(_random, StartupProgressPlugin.Theme.Value, StartupProgressPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig());
+                : Variant.Roll(_random, AccessGrantedPlugin.Theme.Value, AccessGrantedPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig());
             _chatterSource = new Chatter(_random, _variant.Theme);
         }
 
@@ -494,7 +500,7 @@ namespace StartupProgress
             _bootSubtitle = !(StartupTracker.Current >= (int)StepId.Connect);
             _subtitle.text = theme.Division + (_bootSubtitle ? "  //  STARTING UP" : "  //  SIGNING IN");
             ApplyStyle();
-            StartupProgressPlugin.Log.LogInfo(
+            AccessGrantedPlugin.Log.LogInfo(
                 $"Terminal: {theme.Id} ({_variant.Layout} layout, {_variant.Backdrop}, {_variant.Frame} frame, {_variant.Intro} intro, {_variant.Bar} bar, {_variant.Outro} ending), glitches {_variant.Glitches}, line '{_variant.GrantText}'"
                 + (_variant.FakeDenial ? ", fake denial" : string.Empty)
                 + $", {_variant.Notices.Length} notices.");
@@ -656,7 +662,7 @@ namespace StartupProgress
                 EndFx();
                 var clock = System.Diagnostics.Stopwatch.StartNew();
                 Layout(size);
-                StartupProgressPlugin.Log.LogInfo($"Terminal laid out ({_variant.Theme.Id}, {_layout}) in {clock.Elapsed.TotalMilliseconds:0.0} ms.");
+                AccessGrantedPlugin.Log.LogInfo($"Terminal laid out ({_variant.Theme.Id}, {_layout}) in {clock.Elapsed.TotalMilliseconds:0.0} ms.");
             }
 
             // The intro runs on drawn frames, not the clock: the first seconds of a launch are full
@@ -749,7 +755,7 @@ namespace StartupProgress
         /// <summary>Decides when loading is over, or when to stand aside for the game.</summary>
         private void WatchGame(float realTime)
         {
-            if (!StartupProgressPlugin.Enabled.Value)
+            if (!AccessGrantedPlugin.Enabled.Value)
             {
                 StartupTracker.EndRun();
                 Hide();
@@ -807,6 +813,7 @@ namespace StartupProgress
 
             // One texel per pixel, so the lines stay one pixel wide.
             _scanlines.uvRect = new Rect(0f, 0f, 1f, size.y / 3f);
+            _grainLayer.uvRect = new Rect(0f, 0f, size.x / Art.GrainSize, size.y / Art.GrainSize);
             Place(_glow.rectTransform, 0f, 60f * u, size.x * 1.3f, size.y * 1.5f);
             Place(_band.rectTransform, 0f, 0f, size.x, 260f * u);
 
@@ -837,6 +844,9 @@ namespace StartupProgress
             _emblem.anchoredPosition = new Vector2(Mathf.Round(brand.x), Mathf.Round(brand.y + 175f * u * bs));
             Place(_emblemGlow.rectTransform, 0f, 0f, 460f * u, 460f * u);
             Place(_alertGlow.rectTransform, 0f, 0f, 520f * u, 520f * u);
+            float grain = Mathf.Round(520f * u);
+            Place(_emblemGrain.rectTransform, 0f, 0f, grain, grain);
+            _emblemGrain.uvRect = new Rect(0f, 0f, grain / Art.GrainSize, grain / Art.GrainSize);
             float r = 58f * u;
             float gap = 5f * u;
             for (int i = 0; i < _pieces.Length; i++)

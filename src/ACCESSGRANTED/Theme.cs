@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>Which TerraGroup division the terminal belongs to. Random picks one per launch.</summary>
     public enum ThemeChoice
@@ -55,12 +55,12 @@ namespace StartupProgress
 
         internal static Pins FromConfig() => new Pins
         {
-            Layout = StartupProgressPlugin.Layout.Value,
-            Backdrop = StartupProgressPlugin.Backdrop.Value,
-            Frame = StartupProgressPlugin.Frame.Value,
-            Intro = StartupProgressPlugin.Intro.Value,
-            Bar = StartupProgressPlugin.Bar.Value,
-            Outro = StartupProgressPlugin.Ending.Value
+            Layout = AccessGrantedPlugin.Layout.Value,
+            Backdrop = AccessGrantedPlugin.Backdrop.Value,
+            Frame = AccessGrantedPlugin.Frame.Value,
+            Intro = AccessGrantedPlugin.Intro.Value,
+            Bar = AccessGrantedPlugin.Bar.Value,
+            Outro = AccessGrantedPlugin.Ending.Value
         };
     }
 

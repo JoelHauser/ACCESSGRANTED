@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Builds Startup Progress, checks its version, packs the release zip, and optionally installs it.
+    Builds ACCESS GRANTED, checks its version, packs the release zip, and optionally installs it.
 
 .DESCRIPTION
     Run this through PowerShell, not Bash: Bash mangles 'H:\SPT4.1.X' into 'H:SPT4.1.X'.
@@ -30,8 +30,8 @@ Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $root = Split-Path -Parent $PSScriptRoot
-$project = Join-Path $root 'src\StartupProgress\StartupProgress.csproj'
-$source = Join-Path $root 'src\StartupProgress\StartupProgressPlugin.cs'
+$project = Join-Path $root 'src\ACCESSGRANTED\ACCESSGRANTED.csproj'
+$source = Join-Path $root 'src\ACCESSGRANTED\AccessGrantedPlugin.cs'
 
 if (-not (Test-Path (Join-Path $SPTPath 'BepInEx\core\BepInEx.dll'))) {
     throw "SPTPath '$SPTPath' is not an SPT install root: no BepInEx\core\BepInEx.dll."
@@ -43,7 +43,7 @@ if (-not (Test-Path (Join-Path $SPTPath 'BepInEx\core\BepInEx.dll'))) {
 $csprojVersion = ([xml](Get-Content $project)).Project.PropertyGroup.Version | Where-Object { $_ }
 $sourceVersion = (Select-String -Path $source -Pattern 'PluginVersion\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
 if ($csprojVersion -ne $sourceVersion) {
-    throw "Version mismatch: csproj says '$csprojVersion', StartupProgressPlugin.PluginVersion says '$sourceVersion'."
+    throw "Version mismatch: csproj says '$csprojVersion', AccessGrantedPlugin.PluginVersion says '$sourceVersion'."
 }
 $version = $csprojVersion
 Write-Host "Version $version" -ForegroundColor Cyan
@@ -52,17 +52,17 @@ Write-Host "Version $version" -ForegroundColor Cyan
 # No CompileCheckOnly here: a release is only ever built against a patched install.
 dotnet build $project -c Release "-p:SPTPath=$SPTPath" --nologo
 if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
-$built = Join-Path $root 'src\StartupProgress\bin\Release\StartupProgress.dll'
+$built = Join-Path $root 'src\ACCESSGRANTED\bin\Release\ACCESSGRANTED.dll'
 
 # ---- zip -------------------------------------------------------------------------
 # The DLL only: Joel's releases never carry a README.
 $entries = [ordered]@{
-    'BepInEx/plugins/StartupProgress.dll' = $built
+    'BepInEx/plugins/ACCESSGRANTED.dll' = $built
 }
 
 $dist = Join-Path $root 'dist'
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
-$zip = Join-Path $dist "StartupProgress-$version.zip"
+$zip = Join-Path $dist "ACCESSGRANTED-$version.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 
 $archive = [System.IO.Compression.ZipFile]::Open($zip, [System.IO.Compression.ZipArchiveMode]::Create)

@@ -2,7 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// The parts of the screen that change with the division: backdrop, emblem frame, intro,
@@ -391,26 +391,25 @@ namespace StartupProgress
             // Records: a red margin line down the left of the ruled page.
             Place(_margin.rectTransform, -size.x * 0.32f, 0f, Mathf.Max(1f, Mathf.Round(u)), size.y);
 
-            // Like the ambient drawings, these two keep to the space the centred layout leaves
-            // free of text: the zone left of the readout, and the strip under it.
-            bool room = AmbientRoom;
-            float zoneIn = 360f * u;
-            float zoneOut = size.x * 0.5f - 72f * u;
+            // Like the ambient drawings, these two keep to the space the layout leaves free of
+            // text: the taller zone, and the strip under the readout.
+            bool room = ArtZones(out Rect left, out Rect right, out Rect strip);
+            Rect tall = left.height >= right.height ? left : right;
             _watermark.gameObject.SetActive(theme.Watermark && room);
             _chart.gameObject.SetActive(theme.Chart && room);
             _chartHead.gameObject.SetActive(theme.Chart && room);
 
-            // Corporate: the logo again, large and faint, left of the terminal.
+            // Corporate: the logo again, large and faint, beside the terminal.
             _watermark.Clear();
             if (theme.Watermark && room)
             {
-                float r = Mathf.Min((zoneOut - zoneIn) * 0.42f, 300f * u);
+                float r = Mathf.Min(Mathf.Min(tall.width, tall.height) * 0.42f, 300f) * u;
                 Color32 tint = Theme.WithAlpha(Primary, 18);
                 AddPiece(_watermark, new Vector2(-r, 0f), new Vector2(0f, r), 14f * u, tint, null);
                 AddPiece(_watermark, new Vector2(0f, r), new Vector2(r, 0f), 14f * u, tint, null);
                 AddPiece(_watermark, new Vector2(-r, 0f), new Vector2(0f, -r), 14f * u, tint, null);
                 AddPiece(_watermark, new Vector2(r, 0f), new Vector2(0f, -r), 14f * u, tint, Theme.WithAlpha(Ink, 220));
-                _watermark.rectTransform.anchoredPosition = new Vector2(-(zoneIn + zoneOut) * 0.5f, -2f * u);
+                _watermark.rectTransform.anchoredPosition = tall.center * u;
             }
             _watermark.Commit();
 
@@ -420,14 +419,15 @@ namespace StartupProgress
             {
                 var random = new System.Random(_variant.ChartSeed);
                 _chartPoints = new Vector2[ChartPoints];
-                float half = size.x * 0.5f - 118f * u;
-                float y = -398f;
+                float low = strip.yMin + 8f;
+                float high = strip.yMax - 8f;
+                float y = low + 2f;
                 for (int i = 0; i < ChartPoints; i++)
                 {
-                    float x = Mathf.Lerp(-half, half, i / (ChartPoints - 1f));
-                    _chartPoints[i] = new Vector2(x, y * u);
+                    float x = Mathf.Lerp(strip.xMin, strip.xMax, i / (ChartPoints - 1f));
+                    _chartPoints[i] = new Vector2(x * u, y * u);
                     y += 1.6f + ((float)random.NextDouble() - 0.45f) * 12f;
-                    y = Mathf.Clamp(y, -400f, -330f);
+                    y = Mathf.Clamp(y, low, high);
                 }
                 _chartHead.Clear();
                 _chartHead.Disc(Vector2.zero, 4f * u, Theme.WithAlpha(Accent, 200));
@@ -737,7 +737,7 @@ namespace StartupProgress
                 return;
             }
             _chartDrawn = count;
-            float baseline = -408f * _u;
+            float baseline = ArtStripBottom * _u;
             float w = Mathf.Max(1.5f, 2f * _u);
             Color32 line = Theme.WithAlpha(Accent, 80);
             Color32 area = Theme.WithAlpha(Accent, 9);

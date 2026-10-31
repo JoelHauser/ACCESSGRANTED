@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>The load steps, in the order the game runs them.</summary>
     public enum StepId
@@ -127,7 +127,7 @@ namespace StartupProgress
 
         private static string TimingsPath =>
             // Qualified: Assembly-CSharp has a global Paths class of its own.
-            Path.Combine(BepInEx.Paths.ConfigPath, StartupProgressPlugin.PluginGuid + ".timings.txt");
+            Path.Combine(BepInEx.Paths.ConfigPath, AccessGrantedPlugin.PluginGuid + ".timings.txt");
 
         private static float Now => (float)Clock.Elapsed.TotalSeconds;
 
@@ -291,8 +291,8 @@ namespace StartupProgress
             Active = false;
 
             float total = now - _runStart;
-            StartupProgressPlugin.Log.LogInfo($"Loading took {total:0.00}s from '{Labels[FirstStep]}', reached '{Labels[Math.Max(Current, 0)]}'.");
-            StartupProgressPlugin.Log.LogInfo(
+            AccessGrantedPlugin.Log.LogInfo($"Loading took {total:0.00}s from '{Labels[FirstStep]}', reached '{Labels[Math.Max(Current, 0)]}'.");
+            AccessGrantedPlugin.Log.LogInfo(
                 $"Terminal: {_runTerminal * 1000f:0} ms of its own work over {_runFrames} frames ({(_runFrames > 0 ? _runTerminal * 1000f / _runFrames : 0f):0.00} ms/frame).");
 
             // Only a run that reached the menu is a fair yardstick for the next one.
@@ -388,7 +388,7 @@ namespace StartupProgress
             {
                 return;
             }
-            StartupProgressPlugin.Log.LogInfo(
+            AccessGrantedPlugin.Log.LogInfo(
                 $"{Labels[Current]}: {Took[Current]:0.00}s ({_stepFrames} frames, {_stepLongFrames} over {LongFrame * 1000f:0} ms, worst {_stepWorstFrame * 1000f:0} ms, "
                 + $"terminal {(_stepFrames > 0 ? _stepTerminal * 1000f / _stepFrames : 0f):0.00} ms/frame)");
         }
@@ -426,7 +426,7 @@ namespace StartupProgress
             }
             catch (Exception e)
             {
-                StartupProgressPlugin.Log.LogWarning($"Could not read {TimingsPath}: {e.Message}");
+                AccessGrantedPlugin.Log.LogWarning($"Could not read {TimingsPath}: {e.Message}");
             }
         }
 
@@ -447,7 +447,7 @@ namespace StartupProgress
             }
             catch (Exception e)
             {
-                StartupProgressPlugin.Log.LogWarning($"Could not write {TimingsPath}: {e.Message}");
+                AccessGrantedPlugin.Log.LogWarning($"Could not write {TimingsPath}: {e.Message}");
             }
         }
     }

@@ -17,11 +17,11 @@ The terminal never takes input and never holds the game up. It draws over the lo
 
 ## Install
 
-Extract the release zip into your SPT folder (the one containing `EscapeFromTarkov.exe`). It adds `BepInEx/plugins/StartupProgress.dll`.
+Extract the release zip into your SPT folder (the one containing `EscapeFromTarkov.exe`). It adds `BepInEx/plugins/ACCESSGRANTED.dll`.
 
 ## Settings
 
-In the F12 menu (BepInEx Configuration Manager), under **Startup Progress**:
+In the F12 menu (BepInEx Configuration Manager), under **ACCESS GRANTED**:
 
 | Setting | What it does |
 |---|---|
@@ -38,7 +38,7 @@ Press **Ctrl+F9** in the main menu to watch the terminal over a pretend load. Wh
 ## Building
 
 ```powershell
-scripts\pack.ps1 -SPTPath C:\SPT           # build and pack dist\StartupProgress-<version>.zip
+scripts\pack.ps1 -SPTPath C:\SPT           # build and pack dist\ACCESSGRANTED-<version>.zip
 scripts\pack.ps1 -SPTPath C:\SPT -Install  # also copy the DLL into the install
 ```
 

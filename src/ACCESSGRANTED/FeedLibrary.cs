@@ -9,7 +9,7 @@ using System.Threading;
 using UnityEngine;
 using DrawingGraphics = System.Drawing.Graphics;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// Footage for Security's camera wall: the player's own game screenshots, shrunk to small
@@ -33,7 +33,7 @@ namespace StartupProgress
         /// <summary>True once the worker has done all it will: feeds still missing then never come.</summary>
         internal static bool Finished => _finished;
 
-        private static string CacheDirectory => Path.Combine(BepInEx.Paths.CachePath, "StartupProgress");
+        private static string CacheDirectory => Path.Combine(BepInEx.Paths.CachePath, "ACCESSGRANTED");
 
         /// <summary>Starts loading footage, once per game session. Cheap to call again.</summary>
         internal static void Request()
@@ -43,7 +43,7 @@ namespace StartupProgress
                 return;
             }
             _started = true;
-            if (!StartupProgressPlugin.CctvScreenshots.Value)
+            if (!AccessGrantedPlugin.CctvScreenshots.Value)
             {
                 _finished = true;
                 return;
@@ -58,7 +58,7 @@ namespace StartupProgress
             {
                 IsBackground = true,
                 Priority = System.Threading.ThreadPriority.BelowNormal,
-                Name = "StartupProgress CCTV"
+                Name = "ACCESSGRANTED CCTV"
             };
             worker.Start();
         }
@@ -149,13 +149,13 @@ namespace StartupProgress
                     }
                     catch (Exception e)
                     {
-                        StartupProgressPlugin.Log.LogWarning($"CCTV: could not use {file.Name}: {e.Message}");
+                        AccessGrantedPlugin.Log.LogWarning($"CCTV: could not use {file.Name}: {e.Message}");
                     }
                 }
             }
             catch (Exception e)
             {
-                StartupProgressPlugin.Log.LogWarning($"CCTV: no screenshot footage: {e.Message}");
+                AccessGrantedPlugin.Log.LogWarning($"CCTV: no screenshot footage: {e.Message}");
             }
             finally
             {

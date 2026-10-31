@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// The two dashboard panels: the division's signature, one animated piece only that division
@@ -111,6 +111,7 @@ namespace StartupProgress
                 R = root;
                 U = u;
                 T = overlay._variant.Theme;
+                _rng = Seeded ? new System.Random(overlay._variant.ChartSeed) : null;
                 if (framed)
                 {
                     Frame();
@@ -145,7 +146,15 @@ namespace StartupProgress
 
             protected float Progress => O._phase == Phase.Loading ? O._shownFraction : 1f;
             protected float Dt => O._frameDt;
-            protected System.Random Rng => O._random;
+            protected System.Random Rng => _rng ?? O._random;
+
+            /// <summary>
+            /// Draws from a generator seeded per launch, so a rebuild (the terminal lays itself out again when
+            /// the game's font replaces the boot font) draws the same picture instead of a new one.
+            /// </summary>
+            protected virtual bool Seeded => false;
+
+            private System.Random _rng;
             protected Color32 Dark => Color32.Lerp(T.Ink, new Color32(0, 0, 0, 255), 0.45f);
 
             protected Vector2 P(float x, float y) => new Vector2(x * U, y * U);

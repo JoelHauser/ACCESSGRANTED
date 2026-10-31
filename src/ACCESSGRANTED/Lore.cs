@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace StartupProgress
+namespace ACCESSGRANTED
 {
     /// <summary>
     /// What TerraGroup knows about the region: where the bosses were last seen, which PMC
