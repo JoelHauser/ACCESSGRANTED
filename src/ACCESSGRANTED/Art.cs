@@ -17,7 +17,7 @@ namespace ACCESSGRANTED
         /// Opaque in the middle, fading to nothing at the edge of the circle. Stored in half
         /// floats where the graphics card takes them: in 8 bits the faint outer part of a glow
         /// stretched across the screen has only a handful of alpha values, which show as rings.
-        /// The bands that remain from the screen's own 8 bits are broken up by Grain.
+        /// The bands the screen's own 8 bits leave in the big glows are dealt with by DitheredGlow.
         /// </summary>
         internal static Texture2D Radial
         {
@@ -121,64 +121,6 @@ namespace ACCESSGRANTED
         /// <summary>A ruled line every 36 pixels, like a ledger page.</summary>
         internal static Texture2D Ruled => _ruled ?? (_ruled = Make(1, 36, TextureWrapMode.Repeat, FilterMode.Point, (x, y) =>
             y == 0 ? 1f : 0f));
-
-        private static Texture2D _grain;
-
-        /// <summary>
-        /// True when Grain lightens (gamma colour space, which EFT uses): then it adds a step or
-        /// two of brightness at most, the same on every colour, invisible on its own, and it can
-        /// lie over the whole screen, text included. False in a linear colour space, where a
-        /// fixed amount added would be far too strong in the darks: there it darkens by a few
-        /// percent instead, which would speckle bright text, so it must go under the text.
-        /// </summary>
-        internal static bool GrainLightens => QualitySettings.activeColorSpace != ColorSpace.Linear;
-
-        /// <summary>
-        /// Fine grain, one texel per screen pixel, to break up the bands an 8-bit screen shows
-        /// in a wide, dark gradient (the glows). A gradient that big is stretched from a small
-        /// texture, so dither inside that texture comes out in blocks; this is dither at the
-        /// screen's own resolution.
-        /// </summary>
-        internal static Texture2D Grain
-        {
-            get
-            {
-                if (_grain != null)
-                {
-                    return _grain;
-                }
-                const int Size = 128;
-                bool lightens = GrainLightens;
-                AccessGrantedPlugin.Log?.LogInfo($"Grain: {(lightens ? "gamma colour space, lightening 0-2 steps" : "linear colour space, darkening")}.");
-                var random = new System.Random(7);
-                var pixels = new Color32[Size * Size];
-                for (int i = 0; i < pixels.Length; i++)
-                {
-                    // Lightening: 0, 1 or 2 steps, 1 most often (triangular, the usual dither).
-                    pixels[i] = lightens
-                        ? new Color32(255, 255, 255, (byte)(random.Next(2) + random.Next(2)))
-                        : new Color32(0, 0, 0, (byte)random.Next(35));
-                }
-                _grain = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
-                {
-                    wrapMode = TextureWrapMode.Repeat,
-                    filterMode = FilterMode.Point,
-                    hideFlags = HideFlags.DontUnloadUnusedAsset
-                };
-                _grain.SetPixels32(pixels);
-                _grain.Apply(false, true);
-                return _grain;
-            }
-        }
-
-        internal const float GrainSize = 128f;
-
-        /// <summary>Under half a step of 8-bit alpha, varying pixel to pixel.</summary>
-        private static float Dither(int x, int y)
-        {
-            float n = Mathf.Sin(x * 12.9898f + y * 78.233f) * 43758.5453f;
-            return (n - Mathf.Floor(n) - 0.5f) / 255f;
-        }
 
         private static Texture2D Make(int width, int height, TextureWrapMode wrap, FilterMode filter, System.Func<int, int, float> alpha)
         {

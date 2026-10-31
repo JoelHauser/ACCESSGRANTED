@@ -132,7 +132,8 @@ namespace ACCESSGRANTED
             new Vector2(-1f, -1f).normalized, new Vector2(1f, -1f).normalized
         };
         private RawImage _emblemGlow;
-        private RawImage _grainLayer;
+        private readonly DitheredGlow _glowBake = new DitheredGlow();
+        private readonly DitheredGlow _emblemBake = new DitheredGlow();
         private Shape _ringTrack;
         private Shape _ringProgress;
         private float _ringProgressDrawn = -1f;
@@ -312,11 +313,6 @@ namespace ACCESSGRANTED
             _contentGroup.interactable = false;
             _brand = MakeRect("Brand", transform);
             Stretch(_brand);
-            // Breaks up banding in the glows; see Art.Grain. A lightening grain lies over the
-            // content and the logo (its glow included) and under the intro's covers; a darkening
-            // one must stay under the text, so it goes over the backdrop instead, below.
-            _grainLayer = MakeRaw("Grain", Art.GrainLightens ? transform : _content, Art.Grain, Color.white);
-            Stretch(_grainLayer.rectTransform);
             Transform c = _content;
             Transform brand = _brand;
 
@@ -325,11 +321,6 @@ namespace ACCESSGRANTED
             _glow = MakeRaw("Glow", c, Art.Radial, Glow);
             _grid = MakeRaw("Backdrop", c, Art.Dots, Accent);
             Stretch(_grid.rectTransform);
-            if (!Art.GrainLightens)
-            {
-                // Over the glows, under everything drawn on them.
-                _grainLayer.transform.SetAsLastSibling();
-            }
             Isolate(_glow);
             Isolate(_grid);
             BuildBackdropExtras(c);
@@ -659,6 +650,16 @@ namespace ACCESSGRANTED
                 }
             }
 
+            // A dithered glow finished on its worker thread: swap it in.
+            if (_glowBake.Collect())
+            {
+                ApplyGlow(true);
+            }
+            if (_emblemBake.Collect())
+            {
+                ApplyEmblemGlow(true);
+            }
+
             Vector2 size = _rect.rect.size;
             if ((size - _laidOutSize).sqrMagnitude > 0.25f || _laidOutFirstStep != StartupTracker.FirstStep)
             {
@@ -818,8 +819,6 @@ namespace ACCESSGRANTED
 
             // One texel per pixel, so the lines stay one pixel wide.
             _scanlines.uvRect = new Rect(0f, 0f, 1f, size.y / 3f);
-            _grainLayer.uvRect = new Rect(0f, 0f, size.x / Art.GrainSize, size.y / Art.GrainSize);
-            Place(_glow.rectTransform, 0f, 60f * u, size.x * 1.3f, size.y * 1.5f);
             Place(_band.rectTransform, 0f, 0f, size.x, 260f * u);
 
             float inset = Mathf.Round(48f * u);
@@ -847,7 +846,7 @@ namespace ACCESSGRANTED
             // light triangle set into it.
             _brandScale = bs;
             _emblem.anchoredPosition = new Vector2(Mathf.Round(brand.x), Mathf.Round(brand.y + 175f * u * bs));
-            Place(_emblemGlow.rectTransform, 0f, 0f, 460f * u, 460f * u);
+            LayoutGlows(size, u);
             Place(_alertGlow.rectTransform, 0f, 0f, 520f * u, 520f * u);
             float r = 58f * u;
             float gap = 5f * u;
@@ -910,6 +909,64 @@ namespace ACCESSGRANTED
 
             LayoutStyle(size, inset, halfH);
             CaptureTearBase();
+        }
+
+        /// <summary>
+        /// The two big glows, from screen-resolution textures with the dither built in once they
+        /// are ready (see DitheredGlow); the stretched Art.Radial until then.
+        /// </summary>
+        private void LayoutGlows(Vector2 size, float u)
+        {
+            int w = Mathf.RoundToInt(size.x);
+            int h = Mathf.RoundToInt(size.y);
+            // The screen glow: centred 60 units above the middle, 1.3 by 1.5 screens across,
+            // drawn at about 0.8 of its colour's strength over the ink.
+            bool glow = _glowBake.Request(w, h, w * 0.5f, h * 0.5f + 60f * u, size.x * 0.65f, size.y * 0.75f,
+                Glow.a / 255f * 0.8f, Contrast(Glow, Ink), _variant.ChartSeed);
+            ApplyGlow(glow);
+            // The logo's glow, over the brightest part of the screen glow.
+            int e = Mathf.Max(2, Mathf.RoundToInt(460f * u * _brandScale));
+            bool emblem = _emblemBake.Request(e, e, e * 0.5f, e * 0.5f, e * 0.5f, e * 0.5f,
+                Primary.a / 255f, Contrast(Primary, Color32.Lerp(Ink, Glow, 0.8f)), _variant.ChartSeed + 1);
+            ApplyEmblemGlow(emblem);
+        }
+
+        private static float Contrast(Color32 a, Color32 b) =>
+            Mathf.Max(Mathf.Abs(a.r - b.r), Mathf.Max(Mathf.Abs(a.g - b.g), Mathf.Abs(a.b - b.b)));
+
+        private void ApplyGlow(bool dithered)
+        {
+            Vector2 size = _laidOutSize;
+            if (dithered && _glowBake.Texture != null)
+            {
+                _glow.texture = _glowBake.Texture;
+                Place(_glow.rectTransform, 0f, 0f, size.x, size.y);
+            }
+            else
+            {
+                _glow.texture = Art.Radial;
+                Place(_glow.rectTransform, 0f, 60f * _u, size.x * 1.3f, size.y * 1.5f);
+            }
+        }
+
+        private void ApplyEmblemGlow(bool dithered)
+        {
+            float local = 460f * _u;
+            if (dithered && _emblemBake.Texture != null)
+            {
+                _emblemGlow.texture = _emblemBake.Texture;
+                // Sized so one texel is one screen pixel at the logo's scale.
+                RectTransform rect = _emblemGlow.rectTransform;
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = Vector2.zero;
+                local = _emblemBake.Texture.width / Mathf.Max(0.01f, _brandScale);
+                rect.sizeDelta = new Vector2(local, local);
+            }
+            else
+            {
+                _emblemGlow.texture = Art.Radial;
+                Place(_emblemGlow.rectTransform, 0f, 0f, local, local);
+            }
         }
 
         /// <summary>
