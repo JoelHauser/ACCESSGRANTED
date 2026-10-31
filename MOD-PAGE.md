@@ -40,9 +40,13 @@ From the splash screen to the main menu, your launch becomes a TerraGroup sign-i
 
 ## Why you're seeing this
 
-The computer in your hideout's Intelligence Center was pulled out of a TerraGroup office, and it still thinks it works there. Every time you start EFT, it boots up and signs in to TerraGroup's employee network, which never went offline.
+TerraGroup's network is locked down tight. Nobody gets in from outside.
 
-It never gets the same desk twice. The network sends each sign-in to whichever department answers first, so one day you're on Security's terminal and the next on HR's, with their memos, their news and their take on what's happening in Norvinsk. It has even started greeting you by name.
+So you have someone on the inside. A contact at the IT Service Desk set up the computer in your hideout's Intelligence Center with a real company sign-in. Every time you start EFT, it uses a different one, borrowed from a different department, so no single account draws attention. You see what that employee would see: their memos, their news and their take on what's happening in Norvinsk.
+
+Somewhere along the way, the system learned your name. Your contact says not to worry about it.
+
+Your contact also runs the quarterly sign-in review.
 
 ## What the terminal shows
 
