@@ -260,20 +260,18 @@ namespace ACCESSGRANTED
         }
 
         /// <summary>
-        /// Security: the monitor wall. Eight camera feeds (the operator's own screenshots, or a
-        /// drawn corridor) around an access-control panel where each load step is a badge scan.
+        /// Security: the monitor wall. Eight camera feeds (a drawn corridor
+        /// with someone walking up it) around an access-control panel where each load step is a badge scan.
         /// </summary>
         private sealed class MonitorWall : Scene
         {
             private const int Cells = 9;
             private int Middle;
-            private readonly RawImage[] _feeds = new RawImage[Cells];
             private readonly Shape[] _corridors = new Shape[Cells];
             private readonly Shape[] _walkers = new Shape[Cells];
             private readonly TextMeshProUGUI[] _times = new TextMeshProUGUI[Cells];
             private readonly Image[] _scans = new Image[Cells];
             private readonly Vector2[] _centre = new Vector2[Cells];
-            private readonly float[] _pan = new float[Cells];
             private float _cellW;
             private float _cellH;
             private int _dead;
@@ -288,7 +286,6 @@ namespace ACCESSGRANTED
 
             protected override void Build()
             {
-                FeedLibrary.Request();
                 BrandMark(-HW + 80f, 398f, "SECURITY DEPARTMENT");
                 int[] spots = { 4, 4, 0, 2, 6, 8 };
                 Middle = spots[Rng.Next(spots.Length)];
@@ -297,7 +294,6 @@ namespace ACCESSGRANTED
                 _cellW = (tw - 2f * gap) / 3f;
                 _cellH = (720f - 2f * gap) / 3f;
                 _dead = (Middle + 1 + Rng.Next(Cells - 1)) % Cells;
-                Color32 tint = Color32.Lerp(T.Text, T.Accent, 0.45f);
                 Shape frames = Draw();
                 for (int c = 0; c < Cells; c++)
                 {
@@ -315,10 +311,6 @@ namespace ACCESSGRANTED
                     view.anchoredPosition = P(x, y);
                     view.sizeDelta = P(_cellW - 2f, _cellH - 2f);
                     view.gameObject.AddComponent<RectMask2D>();
-                    _feeds[c] = MakeRaw("Feed", view, null, A(tint, 225));
-                    _feeds[c].rectTransform.sizeDelta = P(_cellW - 2f, _cellH - 2f);
-                    _feeds[c].gameObject.SetActive(false);
-                    _pan[c] = Range(0f, 6.28f);
 
                     float hx = _cellW * 0.5f;
                     float hy = _cellH * 0.5f;
@@ -391,30 +383,7 @@ namespace ACCESSGRANTED
                     }
                     float sweep = (t * 0.5f + c * 0.19f) % 1f;
                     _scans[c].rectTransform.anchoredPosition = P(_centre[c].x, _centre[c].y + _cellH * 0.5f - 4f - sweep * (_cellH - 8f));
-                    RawImage feed = _feeds[c];
-                    if (!feed.gameObject.activeSelf)
-                    {
-                        Texture2D frame = FeedLibrary.Texture(c % FeedLibrary.Count);
-                        if (frame != null)
-                        {
-                            feed.texture = frame;
-                            feed.gameObject.SetActive(true);
-                            _corridors[c].gameObject.SetActive(false);
-                            _walkers[c].gameObject.SetActive(false);
-                        }
-                        else
-                        {
-                            Walk(c, t);
-                        }
-                    }
-                    if (feed.gameObject.activeSelf)
-                    {
-                        // Each camera frames its picture differently, and pans slowly.
-                        float s = 0.6f + (c % 3) * 0.12f;
-                        float px = (Mathf.Sin(t * 0.09f + _pan[c]) * 0.5f + 0.5f) * (1f - s);
-                        float py = (Mathf.Cos(t * 0.07f + _pan[c]) * 0.5f + 0.5f) * (1f - s);
-                        feed.uvRect = new Rect(px, py, s, s * 0.75f);
-                    }
+                    Walk(c, t);
                 }
                 float cycle = t % 7f;
                 bool lost = cycle > 4f && cycle < 5.6f;

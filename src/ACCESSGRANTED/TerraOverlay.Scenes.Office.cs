@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -306,10 +305,10 @@ namespace ACCESSGRANTED
                 // The TerraGroup mark in the header.
                 Shape mark = Draw(-148f, 82f, _badge);
                 float r = 13f * U;
-                AddPiece(mark, new Vector2(-r, 0f), new Vector2(0f, r), 1.5f * U, card, null);
-                AddPiece(mark, new Vector2(0f, r), new Vector2(r, 0f), 1.5f * U, card, null);
-                AddPiece(mark, new Vector2(-r, 0f), new Vector2(0f, -r), 1.5f * U, card, null);
-                AddPiece(mark, new Vector2(r, 0f), new Vector2(0f, -r), 1.5f * U, card, T.Primary);
+                AddPiece(mark, new Vector2(-r, 0f), new Vector2(0f, r), r * LogoGap, card, null);
+                AddPiece(mark, new Vector2(0f, r), new Vector2(r, 0f), r * LogoGap, card, null);
+                AddPiece(mark, new Vector2(-r, 0f), new Vector2(0f, -r), r * LogoGap, card, null);
+                AddPiece(mark, new Vector2(r, 0f), new Vector2(0f, -r), r * LogoGap, card, T.Primary);
                 mark.Commit();
 
                 _hologram = Draw(130f, -66f, _badge);

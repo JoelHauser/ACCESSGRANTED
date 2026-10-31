@@ -342,7 +342,6 @@ namespace ACCESSGRANTED
             private const int Bars = 7;
             private string _deck;
             private RectTransform _slide;
-            private Vector2 _slideAt;
             private const float FadeOut = 0.18f;
             private const float FadeIn = 0.4f;
             private RectTransform _copy;
@@ -386,7 +385,7 @@ namespace ACCESSGRANTED
                 Outline(frame, sx, sy, sw, sh, 1f, A(T.Accent, 120));
                 frame.Commit();
                 _slide = MakeRect("Slide", R);
-                _slide.anchoredPosition = _slideAt = P(sx, sy);
+                _slide.anchoredPosition = P(sx, sy);
                 _copy = MakeRect("Copy", _slide);
                 _copyGroup = _copy.gameObject.AddComponent<CanvasGroup>();
                 float l = -sw * 0.5f + 40f;
@@ -573,7 +572,6 @@ namespace ACCESSGRANTED
             private DateTime[] _at;
             private RectTransform[] _cards;
             private CanvasGroup[] _cardGroups;
-            private RawImage[] _photos;
             private TextMeshProUGUI[] _cardTimes;
             private float[] _revealedAt;
             private string _case;
@@ -584,7 +582,6 @@ namespace ACCESSGRANTED
 
             protected override void Build()
             {
-                FeedLibrary.Request();
                 BrandMark(-HW + 80f, 398f, "INTERNAL AFFAIRS");
                 float total = Mathf.Min(2f * HW - 200f, 1600f);
                 float left = -total * 0.5f;
@@ -676,7 +673,6 @@ namespace ACCESSGRANTED
 
                 _cards = new RectTransform[Exhibits];
                 _cardGroups = new CanvasGroup[Exhibits];
-                _photos = new RawImage[Exhibits];
                 _cardTimes = new TextMeshProUGUI[Exhibits];
                 _revealedAt = new float[Exhibits];
                 if (!evidence)
@@ -685,7 +681,6 @@ namespace ACCESSGRANTED
                 }
                 LabelAt("EVIDENCE", ex, 270f, ew, 11f, T.Dim, spacing: 10f);
                 Color32 paper = Color32.Lerp(T.Ink, T.Text, 0.1f);
-                Color32 tint = Color32.Lerp(T.Text, T.Accent, 0.3f);
                 for (int e = 0; e < Exhibits; e++)
                 {
                     float cy = 150f - e * 206f;
@@ -703,9 +698,6 @@ namespace ACCESSGRANTED
                     view.anchoredPosition = P(0f, 14f);
                     view.sizeDelta = P(ew - 20f, 142f);
                     view.gameObject.AddComponent<RectMask2D>();
-                    _photos[e] = MakeRaw("Photo", view, null, A(tint, 235));
-                    _photos[e].rectTransform.sizeDelta = P(ew - 20f, 142f);
-                    _photos[e].gameObject.SetActive(false);
                     Shape tag = Draw(-ew * 0.5f + 34f, 82f, exhibit);
                     tag.RoundedRect(Vector2.zero, 52f * U, 20f * U, 3f * U, T.Warn);
                     tag.Commit();
@@ -781,28 +773,12 @@ namespace ACCESSGRANTED
                     _times[k].color = state == Pending ? A(T.Dim, 90) : state == Slow ? T.Warn : T.Accent;
                 }
 
-                // The exhibits: pinned as they are tagged, a still from the operator's screenshots
-                // once one is ready, with a slow pan.
+                // The exhibits: pinned as they are tagged.
                 for (int e = 0; e < Exhibits; e++)
                 {
                     if (_cards[e] == null)
                     {
                         break;
-                    }
-                    if (!_photos[e].gameObject.activeSelf)
-                    {
-                        Texture2D frame = FeedLibrary.Texture(e % FeedLibrary.Count);
-                        if (frame != null)
-                        {
-                            _photos[e].texture = frame;
-                            _photos[e].gameObject.SetActive(true);
-                        }
-                    }
-                    else
-                    {
-                        float s = 0.8f;
-                        float pan = t * 0.05f + e * 1.7f;
-                        _photos[e].uvRect = new Rect((Mathf.Sin(pan) * 0.5f + 0.5f) * (1f - s), (Mathf.Cos(pan * 0.8f) * 0.5f + 0.5f) * (1f - s), s, s * 0.62f);
                     }
                     float age = _revealedAt[e] < 0f ? -1f : t - _revealedAt[e];
                     float shown = age < 0f ? 0f : Mathf.Clamp01(age / 0.5f);

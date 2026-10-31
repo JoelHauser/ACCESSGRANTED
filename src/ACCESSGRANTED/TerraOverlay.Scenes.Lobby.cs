@@ -59,7 +59,7 @@ namespace ACCESSGRANTED
                 // The company mark, large.
                 Shape logo = Draw(left + 60f, 280f);
                 float r = 56f * U;
-                float gap = 5f * U;
+                float gap = r * LogoGap;
                 AddPiece(logo, new Vector2(-r, 0f), new Vector2(0f, r), gap, T.Primary, null);
                 AddPiece(logo, new Vector2(0f, r), new Vector2(r, 0f), gap, T.Primary, null);
                 AddPiece(logo, new Vector2(-r, 0f), new Vector2(0f, -r), gap, T.Primary, null);

@@ -27,10 +27,8 @@ namespace ACCESSGRANTED
             private TextMeshProUGUI _sub;
             private TextMeshProUGUI _clock;
             private TextMeshProUGUI _detail;
-            private TextMeshProUGUI _caption;
             private TextMeshProUGUI[] _marketValues;
             private float[] _market;
-            private RawImage _feed;
             private Shape _live;
             private Image _bar;
             private float _barWidth;
@@ -38,11 +36,9 @@ namespace ACCESSGRANTED
             private float _nextMarket;
             private int _minute = -1;
             private string _shownDetail = "\0";
-            private float _pan;
 
             protected override void Build()
             {
-                FeedLibrary.Request();
                 float total = Mathf.Min(2f * HW - 200f, 1560f);
                 float left = -total * 0.5f;
                 float right = total * 0.5f;
@@ -82,10 +78,7 @@ namespace ACCESSGRANTED
                 view.anchoredPosition = P(liveLeft + liveWidth * 0.5f, liveY);
                 view.sizeDelta = P(liveWidth - 4f, liveHeight - 4f);
                 view.gameObject.AddComponent<RectMask2D>();
-                _feed = MakeRaw("Feed", view, null, A(Color32.Lerp(T.Text, T.Accent, 0.3f), 235));
-                _feed.rectTransform.sizeDelta = P(liveWidth - 4f, liveHeight - 4f);
-                _feed.gameObject.SetActive(false);
-                _caption = LabelAt("LIVE", liveLeft + 26f, liveY - liveHeight * 0.5f + 16f, liveWidth - 40f, 11f, T.Text);
+                LabelAt("LIVE", liveLeft + 26f, liveY - liveHeight * 0.5f + 16f, liveWidth - 40f, 11f, T.Text);
                 _live = Draw(liveLeft + 14f, liveY - liveHeight * 0.5f + 16f);
                 _live.Disc(Vector2.zero, 4f * U, T.Warn);
                 _live.Commit();
@@ -144,21 +137,6 @@ namespace ACCESSGRANTED
                 _headline.canvasRenderer.SetAlpha(alpha);
                 _sub.canvasRenderer.SetAlpha(alpha);
 
-                if (!_feed.gameObject.activeSelf)
-                {
-                    Texture2D frame = FeedLibrary.Texture(0);
-                    if (frame != null)
-                    {
-                        _feed.texture = frame;
-                        _feed.gameObject.SetActive(true);
-                    }
-                }
-                else
-                {
-                    _pan += Dt * 0.02f;
-                    float s = 0.8f;
-                    _feed.uvRect = new Rect((Mathf.Sin(_pan) * 0.5f + 0.5f) * (1f - s), (Mathf.Cos(_pan * 0.7f) * 0.5f + 0.5f) * (1f - s), s, s);
-                }
                 _live.canvasRenderer.SetAlpha(t % 1f < 0.6f ? 1f : 0.2f);
 
                 if (t >= _nextMarket)

@@ -32,7 +32,6 @@ namespace ACCESSGRANTED
         internal static ConfigEntry<BarKind> Bar;
         internal static ConfigEntry<OutroKind> Ending;
         internal static ConfigEntry<KeyboardShortcut> PreviewKey;
-        internal static ConfigEntry<bool> CctvScreenshots;
 
         private void Update()
         {
@@ -54,11 +53,11 @@ namespace ACCESSGRANTED
             Enabled = Config.Bind("General", "Enabled", true,
                 "Show the TerraGroup loading terminal instead of the plain loading text.");
             Theme = Config.Bind("Style", "Theme", ThemeChoice.Random,
-                "The TerraGroup department the terminal belongs to, with its own colours, drawing and memos. Random picks one each launch, some rarer than others.");
+                "The TerraGroup department the terminal belongs to, with its own colours, drawing and memos. Random picks one each launch, never one shown in the last few launches.");
             Glitches = Config.Bind("Style", "Glitches", GlitchLevel.Subtle,
                 "How often the terminal glitches: tears, colour splits, garbled text. Off for none.");
             Layout = Config.Bind("Style", "Layout", LayoutKind.Random,
-                "How the logo and the readout are arranged. Random uses the centred layout; pick another to use it every launch.");
+                "How the logo and the readout are arranged. Random picks a different one each launch; pick one to use it every launch.");
             Backdrop = Config.Bind("Style", "Background", BackdropKind.Random,
                 "The pattern behind everything. Random lets each department pick one of its own.");
             Frame = Config.Bind("Style", "Logo Frame", FrameKind.Random,
@@ -69,9 +68,6 @@ namespace ACCESSGRANTED
                 "The progress bar. Random lets each department pick one of its own.");
             Ending = Config.Bind("Style", "Ending", OutroKind.Random,
                 "How the screen leaves for the main menu. Random lets each department pick one of its own.");
-            CctvScreenshots = Config.Bind("Style", "CCTV Shows My Screenshots", true,
-                "Security's camera wall plays your own game screenshots as grey security footage. They are only read "
-                + "from your screenshot folders and shrunk into BepInEx/cache/ACCESSGRANTED; nothing leaves your PC.");
             PreviewKey = Config.Bind("Preview", "Preview Key", new KeyboardShortcut(UnityEngine.KeyCode.F9, UnityEngine.KeyCode.LeftControl),
                 "In the main menu, plays the terminal with a pretend load. While it shows: Left/Right change department, "
                 + "Up/Down change layout, Space re-rolls the rest, R replays, Esc closes.");

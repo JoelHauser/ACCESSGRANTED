@@ -110,8 +110,6 @@ namespace ACCESSGRANTED
         private Vector2 _laidOutSize;
         private float _u = 1f;
         private float _barWidth;
-        private float _readoutX;
-        private float _readoutY;
 
         private Image _background;
         private RawImage _glow;
@@ -853,7 +851,7 @@ namespace ACCESSGRANTED
             LayoutGlows(size, u);
             Place(_alertGlow.rectTransform, 0f, 0f, 520f * u, 520f * u);
             float r = 58f * u;
-            float gap = 5f * u;
+            float gap = r * LogoGap;
             for (int i = 0; i < _pieces.Length; i++)
             {
                 _pieces[i].Clear();
@@ -881,8 +879,6 @@ namespace ACCESSGRANTED
             SetText(_subtitle, brand.x, subY, wordWidth, 24f * u, 15f * u, 10f);
 
             barWidth = _barWidth = Mathf.Round(barWidth);
-            _readoutX = rx;
-            _readoutY = ry;
             float barTop = ry - 98f * u;
             SetText(_stepCounter, rx - barWidth * 0.25f, barTop + 20f * u, barWidth * 0.5f, 18f * u, 13f * u, 8f);
             SetText(_percent, rx + barWidth * 0.25f, barTop + 20f * u, barWidth * 0.5f, 18f * u, 13f * u, 8f);
@@ -972,12 +968,15 @@ namespace ACCESSGRANTED
             }
         }
 
+        /// <summary>How far each quarter of the logo sits off the centre lines, as a share of its radius.</summary>
+        private const float LogoGap = 0.05f;
+
         /// <summary>
         /// One quarter of the diamond, the triangle centre-a-b pulled off the centre lines by the
         /// gap, added to <paramref name="shape"/>. With <paramref name="window"/>, also the logo's
         /// light triangle, measured off the real one: tucked into the corner at the diamond's
         /// centre, a thin border along the two straight sides and a slightly thicker one along the
-        /// outer edge, about two thirds the size of the quarter.
+        /// outer edge, about four fifths the size of the quarter.
         /// </summary>
         private static void AddPiece(Shape shape, Vector2 a, Vector2 b, float gap, Color32 color, Color32? window)
         {
@@ -991,8 +990,8 @@ namespace ACCESSGRANTED
                 float leg = Vector2.Distance(c0, c1);
                 Vector2 u1 = (c1 - c0) / leg;
                 Vector2 u2 = (c2 - c0) / leg;
-                float sideBorder = 0.09f * leg;
-                float outerBorder = 0.12f * leg;
+                float sideBorder = 0.06f * leg;
+                float outerBorder = 0.09f * leg;
                 float size = leg - outerBorder * Mathf.Sqrt(2f) - 2f * sideBorder;
                 Vector2 w0 = c0 + (u1 + u2) * sideBorder;
                 shape.Tri(w0, w0 + u1 * size, w0 + u2 * size, window.Value);

@@ -90,10 +90,6 @@ namespace ACCESSGRANTED
         internal readonly string AccentHex;
         internal readonly string WarnHex;
 
-        /// <summary>Share of a random roll, by day and by night. Seasonal themes are 0 and come by date.</summary>
-        internal float DayWeight;
-        internal float NightWeight;
-
         internal BackdropKind[] Backdrops;
         internal FrameKind[] Frames;
         internal IntroKind[] Intros;
@@ -137,7 +133,6 @@ namespace ACCESSGRANTED
         {
             new Theme(ThemeChoice.Corporate, "05070F", "1A2A6A", "3150C8", "2A3F9A", "8FB4FF", "E8EEFF", "7184B0", "FFAA33", "FF3B5C")
             {
-                DayWeight = 34, NightWeight = 28,
                 Backdrops = new[] { BackdropKind.Dots, BackdropKind.Blueprint, BackdropKind.Plain }, Frames = new[] { FrameKind.Rings, FrameKind.Minimal, FrameKind.Orbit },
                 Intros = new[] { IntroKind.TitleCard, IntroKind.Doors, IntroKind.Fade }, Bars = new[] { BarKind.Segments, BarKind.Solid }, Outros = new[] { OutroKind.Zoom, OutroKind.Sting, OutroKind.Slide },
                 Watermark = true,
@@ -150,7 +145,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.Research, "0C0305", "6A0A14", "D9283A", "A01E2C", "FF8A8A", "FFE8E8", "B47078", "FFC83C", "3CDCFF")
             {
-                DayWeight = 14, NightWeight = 14,
                 Backdrops = new[] { BackdropKind.Hex, BackdropKind.Blueprint }, Frames = new[] { FrameKind.Molecule, FrameKind.Orbit },
                 Intros = new[] { IntroKind.Wipe, IntroKind.Fade, IntroKind.Doors }, Bars = new[] { BarKind.Segments, BarKind.Thin }, Outros = new[] { OutroKind.Sting, OutroKind.Zoom },
                 Division = "RESEARCH DIVISION", TitleCard = "TERRAGROUP LABS", LogTag = "CLEARED",
@@ -163,7 +157,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.Security, "0A0500", "6E3400", "FF8C14", "C8640A", "FFBE5A", "FFE2B4", "B0783C", "FF4632", "3CC8FF")
             {
-                DayWeight = 12, NightWeight = 18,
                 Backdrops = new[] { BackdropKind.Grid, BackdropKind.Blueprint }, Frames = new[] { FrameKind.Brackets, FrameKind.Squares },
                 Intros = new[] { IntroKind.Crt, IntroKind.Doors }, Bars = new[] { BarKind.Thin, BarKind.Segments }, Outros = new[] { OutroKind.Lift, OutroKind.Slide },
                 Scanlines = true,
@@ -177,7 +170,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.Finance, "020805", "0A4A28", "2FB86A", "23905A", "8CF0B0", "DFFFEA", "6FA088", "FFB43C", "FF3CA0")
             {
-                DayWeight = 13, NightWeight = 10,
                 Backdrops = new[] { BackdropKind.Dots, BackdropKind.Grid }, Frames = new[] { FrameKind.Dial, FrameKind.Minimal },
                 Intros = new[] { IntroKind.Wipe, IntroKind.Fade }, Bars = new[] { BarKind.Solid, BarKind.Thin }, Outros = new[] { OutroKind.Zoom, OutroKind.Slide },
                 Chart = true,
@@ -191,7 +183,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.Records, "060607", "3C3C40", "AAAAAF", "78787D", "E1E1E6", "F0F0F0", "828287", "D23C3C", "3CA0FF")
             {
-                DayWeight = 13, NightWeight = 12,
                 Backdrops = new[] { BackdropKind.Ruled, BackdropKind.Plain }, Frames = new[] { FrameKind.Seal, FrameKind.Minimal },
                 Intros = new[] { IntroKind.Fade, IntroKind.TitleCard }, Bars = new[] { BarKind.Thin }, Outros = new[] { OutroKind.Sting, OutroKind.Lift },
                 Division = "RECORDS MANAGEMENT", TitleCard = "CONFIDENTIAL", LogTag = "FILED",
@@ -204,7 +195,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.Executive, "080602", "6E500A", "DCAA28", "AA7D19", "FFD76E", "FFF0C8", "AA915A", "FF5A3C", "5A8CFF")
             {
-                DayWeight = 3, NightWeight = 3,
                 Backdrops = new[] { BackdropKind.Pinstripe }, Frames = new[] { FrameKind.Ornate, FrameKind.Squares },
                 Intros = new[] { IntroKind.Sheen, IntroKind.Doors }, Bars = new[] { BarKind.Solid }, Outros = new[] { OutroKind.Flash, OutroKind.Sting },
                 Division = "EXECUTIVE BOARD", TitleCard = "EXECUTIVE SUITE", LogTag = "SIGNED",
@@ -217,7 +207,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.InternalAffairs, "06020C", "461478", "9646FF", "6E32C8", "E678FF", "F0DCFF", "9678BE", "FFBE3C", "3CFFC8")
             {
-                DayWeight = 3, NightWeight = 3,
                 Backdrops = new[] { BackdropKind.Grid, BackdropKind.Plain }, Frames = new[] { FrameKind.Brackets, FrameKind.Orbit },
                 Intros = new[] { IntroKind.TitleCard }, Bars = new[] { BarKind.Segments }, Outros = new[] { OutroKind.Sting, OutroKind.Zoom },
                 Division = "INTERNAL AFFAIRS", TitleCard = "THIS SESSION IS BEING REVIEWED", LogTag = "NOTED",
@@ -230,7 +219,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.Logistics, "020A0C", "0A4650", "1FA5B5", "17808C", "7FE3EE", "DDFAFF", "64A0A8", "FFB43C", "FF4A7A")
             {
-                DayWeight = 10, NightWeight = 10,
                 Backdrops = new[] { BackdropKind.Grid, BackdropKind.Blueprint }, Frames = new[] { FrameKind.Dial, FrameKind.Orbit },
                 Intros = new[] { IntroKind.Wipe, IntroKind.Doors }, Bars = new[] { BarKind.Segments, BarKind.Thin }, Outros = new[] { OutroKind.Slide, OutroKind.Lift },
                 Division = "LOGISTICS AND SUPPLY", TitleCard = "MOVING WHAT MATTERS", LogTag = "SHIPPED",
@@ -243,7 +231,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.HumanResources, "0C0508", "5A2236", "E0607E", "B04A62", "FFB2C0", "FFEFF2", "B88894", "FFC850", "50D2FF")
             {
-                DayWeight = 9, NightWeight = 7,
                 Backdrops = new[] { BackdropKind.Dots, BackdropKind.Plain }, Frames = new[] { FrameKind.Minimal, FrameKind.Seal },
                 Intros = new[] { IntroKind.Fade, IntroKind.TitleCard }, Bars = new[] { BarKind.Solid }, Outros = new[] { OutroKind.Sting, OutroKind.Zoom },
                 Division = "HUMAN RESOURCES", TitleCard = "OUR PEOPLE ARE OUR GREATEST ASSET", LogTag = "DONE",
@@ -256,7 +243,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.ItDepartment, "04060A", "22304A", "5A7DB4", "46628E", "A8C4F0", "E6EEFA", "7888A4", "FF8C3C", "3CFFB4")
             {
-                DayWeight = 9, NightWeight = 10,
                 Backdrops = new[] { BackdropKind.Blueprint, BackdropKind.Grid }, Frames = new[] { FrameKind.Squares, FrameKind.Minimal },
                 Intros = new[] { IntroKind.Crt, IntroKind.Wipe }, Bars = new[] { BarKind.Thin, BarKind.Segments }, Outros = new[] { OutroKind.Slide, OutroKind.Zoom },
                 Division = "IT SERVICE DESK", TitleCard = "HAVE YOU TRIED TURNING IT OFF AND ON AGAIN", LogTag = "RESOLVED",
@@ -269,7 +255,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.Medical, "020809", "0E4A4A", "2EC4B6", "22968C", "A0F5EC", "F0FFFD", "6EA8A2", "FF6A5A", "FF5AC8")
             {
-                DayWeight = 9, NightWeight = 8,
                 Backdrops = new[] { BackdropKind.Hex, BackdropKind.Plain }, Frames = new[] { FrameKind.Molecule, FrameKind.Minimal },
                 Intros = new[] { IntroKind.Fade, IntroKind.Doors }, Bars = new[] { BarKind.Thin }, Outros = new[] { OutroKind.Sting, OutroKind.Zoom },
                 Division = "TERRAGROUP HEALTH", TitleCard = "YOUR HEALTH. OUR SCIENCE.", LogTag = "CHECKED",
@@ -282,7 +267,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.Facilities, "0A0903", "54460A", "F2C230", "BE961E", "FFE184", "FFF6D8", "AC9C64", "FF5A32", "4A8CFF")
             {
-                DayWeight = 8, NightWeight = 9,
                 Backdrops = new[] { BackdropKind.Pinstripe, BackdropKind.Grid }, Frames = new[] { FrameKind.Brackets, FrameKind.Dial },
                 Intros = new[] { IntroKind.Doors, IntroKind.Crt }, Bars = new[] { BarKind.Segments }, Outros = new[] { OutroKind.Lift, OutroKind.Slide },
                 Division = "FACILITIES MANAGEMENT", TitleCard = "SAFETY FIRST", LogTag = "FIXED",
@@ -295,7 +279,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.Legal, "0C0405", "50141E", "B4323F", "8C2632", "E8C9A0", "FAF0E6", "A88C84", "FFB43C", "3CB4FF")
             {
-                DayWeight = 7, NightWeight = 7,
                 Backdrops = new[] { BackdropKind.Ruled, BackdropKind.Pinstripe }, Frames = new[] { FrameKind.Seal, FrameKind.Ornate },
                 Intros = new[] { IntroKind.TitleCard, IntroKind.Fade }, Bars = new[] { BarKind.Thin }, Outros = new[] { OutroKind.Sting },
                 Division = "LEGAL DEPARTMENT", TitleCard = "PRIVILEGED AND CONFIDENTIAL", LogTag = "NOTED",
@@ -308,7 +291,6 @@ namespace ACCESSGRANTED
             },
             new Theme(ThemeChoice.PublicRelations, "08040C", "4A1A5A", "C83CC8", "9A2E9A", "F7A8F0", "FFEFFF", "A884A8", "FFC03C", "3CFFD2")
             {
-                DayWeight = 8, NightWeight = 6,
                 Backdrops = new[] { BackdropKind.Dots, BackdropKind.Plain }, Frames = new[] { FrameKind.Rings, FrameKind.Orbit },
                 Intros = new[] { IntroKind.TitleCard, IntroKind.Sheen }, Bars = new[] { BarKind.Solid }, Outros = new[] { OutroKind.Flash, OutroKind.Slide },
                 Division = "COMMUNICATIONS", TitleCard = "BUILDING A BETTER TOMORROW", LogTag = "RELEASED",
@@ -453,30 +435,26 @@ namespace ACCESSGRANTED
             }
             else
             {
-                bool night = now.Hour >= 21 || now.Hour < 6;
-                float total = 0f;
+                // Every division equally likely, but the ones shown in the last few launches sit
+                // out, so the same screen does not come round again soon.
+                var divisions = new List<Theme>();
+                var names = new List<string>();
                 foreach (Theme theme in Theme.All)
                 {
-                    total += night ? theme.NightWeight : theme.DayWeight;
-                }
-                float pick = (float)random.NextDouble() * total;
-                v.Theme = Theme.All[0];
-                foreach (Theme theme in Theme.All)
-                {
-                    float weight = night ? theme.NightWeight : theme.DayWeight;
-                    if (weight > 0f && (pick -= weight) < 0f)
+                    if (theme.Id != ThemeChoice.Holiday)
                     {
-                        v.Theme = theme;
-                        break;
+                        divisions.Add(theme);
+                        names.Add(theme.Id.ToString());
                     }
                 }
+                v.Theme = divisions[Archive.PickShuffled("division", names, random)];
             }
             Theme t = v.Theme;
-            v.Backdrop = t.Backdrops[random.Next(t.Backdrops.Length)];
-            v.Frame = t.Frames[random.Next(t.Frames.Length)];
-            v.Intro = t.Intros[random.Next(t.Intros.Length)];
-            v.Bar = t.Bars[random.Next(t.Bars.Length)];
-            v.Outro = t.Outros[random.Next(t.Outros.Length)];
+            v.Backdrop = PickPart(random, t, "backdrop", t.Backdrops);
+            v.Frame = PickPart(random, t, "frame", t.Frames);
+            v.Intro = PickPart(random, t, "intro", t.Intros);
+            v.Bar = PickPart(random, t, "bar", t.Bars);
+            v.Outro = PickPart(random, t, "outro", t.Outros);
             v.Layout = PickLayout(random);
             if (pins.Layout != LayoutKind.Random) v.Layout = pins.Layout;
             if (pins.Backdrop != BackdropKind.Random) v.Backdrop = pins.Backdrop;
@@ -601,11 +579,31 @@ namespace ACCESSGRANTED
             return builder.ToString();
         }
 
+        /// <summary>One of the division's choices for a slot, avoiding the ones it showed last time.</summary>
+        private static T PickPart<T>(System.Random random, Theme theme, string slot, T[] choices)
+        {
+            var names = new List<string>();
+            foreach (T choice in choices)
+            {
+                names.Add(choice.ToString());
+            }
+            return choices[Archive.PickShuffled(slot + "." + theme.Id, names, random)];
+        }
+
         private static LayoutKind PickLayout(System.Random random)
         {
-            // The centred terminal is the look; the others stay available from the settings
-            // and the preview.
-            return LayoutKind.Centered;
+            // Any layout, avoiding the ones shown last time, like the divisions.
+            var layouts = new List<LayoutKind>();
+            var names = new List<string>();
+            foreach (LayoutKind layout in Enum.GetValues(typeof(LayoutKind)))
+            {
+                if (layout != LayoutKind.Random)
+                {
+                    layouts.Add(layout);
+                    names.Add(layout.ToString());
+                }
+            }
+            return layouts[Archive.PickShuffled("layout", names, random)];
         }
 
         private static float Range(System.Random random, float min, float max) => min + (float)random.NextDouble() * (max - min);

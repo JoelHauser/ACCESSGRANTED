@@ -21,7 +21,7 @@ namespace ACCESSGRANTED
     {
         private const float TickerSpeed = 60f;
         private const float MemoIn = 0.35f;
-        private const float MemoHold = 4.2f;
+        private const float MemoHold = 7f;
         private const float SheenTime = 0.9f;
         private const int ChartPoints = 40;
 
@@ -31,7 +31,6 @@ namespace ACCESSGRANTED
         private Image _panelEdge;
         private Vector2 _memoSpot;
         private float _memoWidth;
-        private Image _margin;
         private Shape _watermark;
         private Shape _chart;
         private Shape _chartHead;
@@ -103,7 +102,6 @@ namespace ACCESSGRANTED
         {
             _panel = MakeImage("Panel", c, Ink);
             _panelEdge = MakeImage("PanelEdge", c, Accent);
-            _margin = MakeImage("Margin", c, Warn);
             _watermark = Shape.Create("Watermark", c);
             _chart = Shape.Create("Chart", c);
             _chartHead = Shape.Create("ChartHead", c);
@@ -161,8 +159,6 @@ namespace ACCESSGRANTED
             _grid.texture = BackdropTexture(_variant.Backdrop);
             _grid.color = Theme.WithAlpha(Accent, BackdropAlpha(_variant.Backdrop));
             _grid.gameObject.SetActive(_variant.Backdrop != BackdropKind.Plain);
-            _margin.color = Theme.WithAlpha(Warn, 40);
-            _margin.gameObject.SetActive(_variant.Backdrop == BackdropKind.Ruled);
             _panel.color = Theme.WithAlpha(Color32.Lerp(Ink, Primary, 0.1f), 215);
             _panelEdge.color = Theme.WithAlpha(Accent, 90);
             _chart.gameObject.SetActive(theme.Chart);
@@ -288,7 +284,6 @@ namespace ACCESSGRANTED
             // The department's detail, in the space the layout leaves: beside the column, under
             // the readout, in the open part of the sidebar layout, or in the dock's top corner.
             const float DetailWidth = 340f;
-            const float DetailHeight = 320f;
             float scale;
             Vector2 spot;
 
@@ -301,7 +296,6 @@ namespace ACCESSGRANTED
                     brand = new Vector2(-side * cw * 0.23f, -90f * u);
                     rx = side * cw * 0.2f;
                     ry = 210f * u;
-                    scale = 0.9f;
                     spot = new Vector2(rx, -262f * u);
                     break;
                 }
@@ -314,7 +308,6 @@ namespace ACCESSGRANTED
                     rx = centre;
                     ry = 160f * u;
                     barWidth = panelWidth - 120f * u;
-                    scale = Mathf.Min(1.2f, (w - panelWidth - inset - 60f * u) / (DetailWidth * u));
                     spot = new Vector2(-w * 0.5f + panelWidth + (w - panelWidth - inset) * 0.5f, -50f * u);
                     break;
                 }
@@ -336,8 +329,6 @@ namespace ACCESSGRANTED
                     break;
                 }
             }
-            // Much smaller and it stops being readable: leave it out.
-            _panelScale = scale < 0.6f ? 0f : Mathf.Min(scale, h * 0.6f / (DetailHeight * u));
             _panelSpots[0] = spot;
 
             // Under the current step's detail line, with room so the two never touch.
@@ -390,8 +381,6 @@ namespace ACCESSGRANTED
             float u = _u;
             Theme theme = _variant.Theme;
 
-            // Records: a red margin line down the left of the ruled page.
-            Place(_margin.rectTransform, -size.x * 0.32f, 0f, Mathf.Max(1f, Mathf.Round(u)), size.y);
 
             // Like the ambient drawings, these two keep to the space the layout leaves free of
             // text: the taller zone, and the strip under the readout.
@@ -407,10 +396,10 @@ namespace ACCESSGRANTED
             {
                 float r = Mathf.Min(Mathf.Min(tall.width, tall.height) * 0.42f, 300f) * u;
                 Color32 tint = Theme.WithAlpha(Primary, 18);
-                AddPiece(_watermark, new Vector2(-r, 0f), new Vector2(0f, r), 14f * u, tint, null);
-                AddPiece(_watermark, new Vector2(0f, r), new Vector2(r, 0f), 14f * u, tint, null);
-                AddPiece(_watermark, new Vector2(-r, 0f), new Vector2(0f, -r), 14f * u, tint, null);
-                AddPiece(_watermark, new Vector2(r, 0f), new Vector2(0f, -r), 14f * u, tint, Theme.WithAlpha(Ink, 220));
+                AddPiece(_watermark, new Vector2(-r, 0f), new Vector2(0f, r), r * LogoGap, tint, null);
+                AddPiece(_watermark, new Vector2(0f, r), new Vector2(r, 0f), r * LogoGap, tint, null);
+                AddPiece(_watermark, new Vector2(-r, 0f), new Vector2(0f, -r), r * LogoGap, tint, null);
+                AddPiece(_watermark, new Vector2(r, 0f), new Vector2(0f, -r), r * LogoGap, tint, Theme.WithAlpha(Ink, 220));
                 _watermark.rectTransform.anchoredPosition = tall.center * u;
             }
             _watermark.Commit();

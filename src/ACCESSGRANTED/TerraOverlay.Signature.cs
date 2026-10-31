@@ -26,7 +26,6 @@ namespace ACCESSGRANTED
         private readonly RectTransform[] _panelRoots = new RectTransform[MaxCards + 1];
         private readonly Signature[] _panels = new Signature[MaxCards + 1];
         private readonly Vector2[] _panelSpots = new Vector2[MaxCards];
-        private float _panelScale;
 
         private void BuildSignatureRoot(Transform c)
         {
@@ -296,21 +295,16 @@ namespace ACCESSGRANTED
         }
 
         /// <summary>
-        /// Security: a wall of four camera feeds showing the player's own screenshots as grey,
-        /// slowly panning footage (see <see cref="FeedLibrary"/>), timestamps running, one losing
-        /// signal now and then. A feed still loading says so; with no screenshots, the camera
-        /// shows a drawn corridor with someone walking up it.
+        /// Security: a wall of four camera feeds, each a drawn corridor with someone walking up
+        /// it, timestamps running, one losing signal now and then.
         /// </summary>
         private sealed class Cctv : Signature
         {
             private static readonly Vector2[] Tiles = { new Vector2(-80f, 62f), new Vector2(80f, 62f), new Vector2(-80f, -62f), new Vector2(80f, -62f) };
             private readonly TextMeshProUGUI[] _times = new TextMeshProUGUI[4];
             private readonly Image[] _scans = new Image[4];
-            private readonly RawImage[] _feeds = new RawImage[4];
             private readonly Shape[] _corridors = new Shape[4];
             private readonly Shape[] _walkers = new Shape[4];
-            private readonly TextMeshProUGUI[] _connecting = new TextMeshProUGUI[4];
-            private readonly float[] _pan = new float[4];
             private TextMeshProUGUI _noSignal;
             private Image _noSignalCover;
             private Shape _rec;
@@ -319,10 +313,8 @@ namespace ACCESSGRANTED
 
             protected override void Build()
             {
-                FeedLibrary.Request();
                 Label("CCTV  //  CHECKPOINT FEEDS", 0f, 140f, 320f, 12f, T.Dim);
                 _dead = Rng.Next(4);
-                Color32 tint = Color32.Lerp(T.Text, T.Accent, 0.45f);
                 for (int k = 0; k < 4; k++)
                 {
                     Vector2 c = Tiles[k];
@@ -334,12 +326,7 @@ namespace ACCESSGRANTED
                     view.sizeDelta = P(148f, 110f);
                     view.gameObject.AddComponent<RectMask2D>();
 
-                    _feeds[k] = MakeRaw("Feed", view, null, A(tint, 225));
-                    _feeds[k].rectTransform.sizeDelta = P(148f, 110f);
-                    _feeds[k].gameObject.SetActive(false);
-                    _pan[k] = Range(0f, 6.28f);
-
-                    // The stand-in: a corridor in perspective, and someone walking up it.
+                    // A corridor in perspective, and someone walking up it.
                     Shape corridor = _corridors[k] = Draw(0f, 0f, view);
                     float iw = 34f, ih = 24f;
                     corridor.Line(P(-75f, 56f), P(-iw, ih), U, A(T.Dim, 70));
@@ -354,8 +341,6 @@ namespace ACCESSGRANTED
                     walker.Line(P(-2.5f, -8f), P(-3.5f, -22f), 2.5f * U, A(T.Dim, 210));
                     walker.Line(P(2.5f, -8f), P(3.5f, -22f), 2.5f * U, A(T.Dim, 210));
                     walker.Commit();
-
-                    _connecting[k] = Label("CONNECTING...", 0f, 0f, 140f, 10f, T.Dim, TextAlignmentOptions.Center, view);
                 }
 
                 Shape frames = Draw();
@@ -396,45 +381,7 @@ namespace ACCESSGRANTED
                 {
                     float y = Tiles[k].y + 54f - ((t * 0.6f + k * 0.27f) % 1f) * 108f;
                     _scans[k].rectTransform.anchoredPosition = P(Tiles[k].x, y);
-
-                    RawImage feed = _feeds[k];
-                    if (!feed.gameObject.activeSelf)
-                    {
-                        Texture2D frame = FeedLibrary.Texture(k);
-                        if (frame != null)
-                        {
-                            // The feed comes through: the stand-in goes.
-                            feed.texture = frame;
-                            feed.gameObject.SetActive(true);
-                            _corridors[k].gameObject.SetActive(false);
-                            _walkers[k].gameObject.SetActive(false);
-                            _connecting[k].gameObject.SetActive(false);
-                        }
-                        else
-                        {
-                            bool waiting = !FeedLibrary.Finished;
-                            SetActive(_connecting[k].gameObject, waiting);
-                            SetActive(_corridors[k].gameObject, !waiting);
-                            SetActive(_walkers[k].gameObject, !waiting);
-                            if (waiting)
-                            {
-                                _connecting[k].canvasRenderer.SetAlpha(t % 0.8f < 0.5f ? 1f : 0.3f);
-                            }
-                            else
-                            {
-                                Walk(k, t);
-                            }
-                        }
-                    }
-                    if (feed.gameObject.activeSelf)
-                    {
-                        // A slow pan across a slightly zoomed frame, and the odd flicker.
-                        float s = 0.86f;
-                        float px = (Mathf.Sin(t * 0.13f + _pan[k]) * 0.5f + 0.5f) * (1f - s);
-                        float py = (Mathf.Cos(t * 0.11f + _pan[k]) * 0.5f + 0.5f) * (1f - s);
-                        feed.uvRect = new Rect(px, py, s, s);
-                        feed.canvasRenderer.SetAlpha(Rng.NextDouble() < 0.04 ? 0.7f : 0.92f);
-                    }
+                    Walk(k, t);
                 }
 
                 float cycle = t % 6f;

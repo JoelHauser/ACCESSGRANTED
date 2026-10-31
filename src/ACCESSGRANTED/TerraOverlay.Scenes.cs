@@ -141,7 +141,7 @@ namespace ACCESSGRANTED
             {
                 Shape logo = Draw(x, y);
                 float r = 20f * U;
-                float gap = 2f * U;
+                float gap = r * LogoGap;
                 AddPiece(logo, new Vector2(-r, 0f), new Vector2(0f, r), gap, T.Primary, null);
                 AddPiece(logo, new Vector2(0f, r), new Vector2(r, 0f), gap, T.Primary, null);
                 AddPiece(logo, new Vector2(-r, 0f), new Vector2(0f, -r), gap, T.Primary, null);

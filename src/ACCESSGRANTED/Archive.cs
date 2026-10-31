@@ -73,6 +73,46 @@ namespace ACCESSGRANTED
             return pick;
         }
 
+        /// <summary>
+        /// Picks an entry at random, but never one of the pool's most recently shown: about half
+        /// the pool sits out each time, so a choice cannot come back for several launches and
+        /// the order is new every time round (unlike <see cref="Pick"/>, which settles into a
+        /// fixed cycle once everything has been seen). Records it unless this is a preview.
+        /// </summary>
+        internal static int PickShuffled(string kind, IList<string> pool, Random random)
+        {
+            if (pool == null || pool.Count == 0)
+            {
+                return -1;
+            }
+            Load();
+            var recent = new List<KeyValuePair<int, int>>();
+            for (int i = 0; i < pool.Count; i++)
+            {
+                if (Seen.TryGetValue(Key(kind, pool[i]), out int when))
+                {
+                    recent.Add(new KeyValuePair<int, int>(when, i));
+                }
+            }
+            recent.Sort((a, b) => b.Key.CompareTo(a.Key));
+            var resting = new HashSet<int>();
+            for (int i = 0; i < recent.Count && i < pool.Count / 2; i++)
+            {
+                resting.Add(recent[i].Value);
+            }
+            var open = new List<int>();
+            for (int i = 0; i < pool.Count; i++)
+            {
+                if (!resting.Contains(i))
+                {
+                    open.Add(i);
+                }
+            }
+            int pick = open[random.Next(open.Count)];
+            Mark(Key(kind, pool[pick]), Recording);
+            return pick;
+        }
+
         /// <summary>Picks and returns the entry itself; null for an empty pool.</summary>
         internal static string PickLine(string kind, IList<string> pool, Random random)
         {

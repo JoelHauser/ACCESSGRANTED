@@ -505,7 +505,7 @@ namespace ACCESSGRANTED
                     seal.Line(Polar((_r - 56f * k) * U, i * 5f), Polar((_r - (i % 6 == 0 ? 70f : 62f) * k) * U, i * 5f), (i % 6 == 0 ? 2f : 1f) * U, Soft);
                 }
                 float r = 70f * k * U;
-                float gap = 6f * k * U;
+                float gap = r * LogoGap;
                 Color32 mark = A(T.Accent, 40);
                 AddPiece(seal, new Vector2(-r, 0f), new Vector2(0f, r), gap, mark, null);
                 AddPiece(seal, new Vector2(0f, r), new Vector2(r, 0f), gap, mark, null);

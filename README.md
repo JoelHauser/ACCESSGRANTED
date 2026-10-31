@@ -7,7 +7,8 @@ Instead of "Loading profile data...", you see what the game is actually doing: e
 ## What you get
 
 - **A real loading readout.** Fifteen load steps, from verifying game files to opening the main menu, with live timers and a log of finished steps. A step that runs well past its usual time is flagged.
-- **A different TerraGroup department each launch.** Corporate HQ, Research, Security, Finance, Records, Legal, IT, HR, Health, Facilities, Communications, Logistics, plus rare Executive and Internal Affairs terminals. Each has its own colours, background, logo frame, intro, progress bar, ending and wording.
+- **A different TerraGroup department each launch.** Corporate HQ, Research, Security, Finance, Records, Legal, IT, HR, Health, Facilities, Communications, Logistics, Executive and Internal Affairs, shuffled so the same one does not come back for several launches. Each has its own colours, background, logo frame, intro, progress bar, ending and wording.
+- **Five layouts** (centred, split either way, sidebar, dock), shuffled the same way.
 - **A faint background drawing per department** that follows the load and stays clear of the text: Finance's share price climbs, Legal's seal presses in, Facilities' pipework runs faster, Health's heartbeat runs under the readout, and so on.
 - **The company talking.** Internal memos, priority intel on the region (bosses, PMC movements, traders, flea prices), a news and stock ticker, and the odd notice nobody admits to sending. Some of it knows your nickname and faction.
 - **Restrained glitches**, kept away from the moments the game itself freezes.
