@@ -48,12 +48,6 @@ Somewhere along the way, the system learned your name. Your contact says not to 
 
 Your contact also runs the quarterly sign-in review.
 
-## On screen
-
-![Investor Relations' terminal during a launch](https://raw.githubusercontent.com/JoelHauser/ACCESSGRANTED/main/docs/images/alt-ingame.png)
-
-*Investor Relations, four steps in. The log under the current step is real: those are the steps EFT just finished, and how long each took.*
-
 ## Department directory
 
 Fourteen departments, shuffled so the same one won't come back for several launches. The fifteenth only opens on 25 December.
