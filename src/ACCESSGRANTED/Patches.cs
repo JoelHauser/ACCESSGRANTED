@@ -56,6 +56,8 @@ namespace ACCESSGRANTED
                 }
             }
 
+            MenuBackgroundFix.Apply(harmony);
+
             MethodInfo show = AccessTools.Method(typeof(ProfileLoadingScreen), nameof(ProfileLoadingScreen.Show), new[] { typeof(bool) });
             if (show == null)
             {
