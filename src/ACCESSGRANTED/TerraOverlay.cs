@@ -132,8 +132,10 @@ namespace ACCESSGRANTED
             new Vector2(-1f, -1f).normalized, new Vector2(1f, -1f).normalized
         };
         private RawImage _emblemGlow;
-        private readonly DitheredGlow _glowBake = new DitheredGlow();
-        private readonly DitheredGlow _emblemBake = new DitheredGlow();
+        // Screen-sized glows are big (20 MB at 3440x1440): keep one. The logo's glow changes
+        // size with the layout and is small: keep a few.
+        private readonly DitheredGlow _glowBake = new DitheredGlow(1);
+        private readonly DitheredGlow _emblemBake = new DitheredGlow(4);
         private Shape _ringTrack;
         private Shape _ringProgress;
         private float _ringProgressDrawn = -1f;
@@ -919,20 +921,19 @@ namespace ACCESSGRANTED
         {
             int w = Mathf.RoundToInt(size.x);
             int h = Mathf.RoundToInt(size.y);
-            // The screen glow: centred 60 units above the middle, 1.3 by 1.5 screens across,
-            // drawn at about 0.8 of its colour's strength over the ink.
-            bool glow = _glowBake.Request(w, h, w * 0.5f, h * 0.5f + 60f * u, size.x * 0.65f, size.y * 0.75f,
-                Glow.a / 255f * 0.8f, Contrast(Glow, Ink), _variant.ChartSeed);
+            // The screen glow: centred 60 units above the middle, 1.3 by 1.5 screens across.
+            // Six alpha steps of noise: drawn at about 0.8 strength, the departments' glows move
+            // the screen by 0.18 to 0.32 of a step per alpha step, so this is one to two steps.
+            bool glow = _glowBake.Request(w, h, w * 0.5f, h * 0.5f + 60f * u, size.x * 0.65f, size.y * 0.75f, GlowNoise);
             ApplyGlow(glow);
-            // The logo's glow, over the brightest part of the screen glow.
+            // The logo's glow, brighter against what is under it: 0.5 to 0.8 of a step per alpha step.
             int e = Mathf.Max(2, Mathf.RoundToInt(460f * u * _brandScale));
-            bool emblem = _emblemBake.Request(e, e, e * 0.5f, e * 0.5f, e * 0.5f, e * 0.5f,
-                Primary.a / 255f, Contrast(Primary, Color32.Lerp(Ink, Glow, 0.8f)), _variant.ChartSeed + 1);
+            bool emblem = _emblemBake.Request(e, e, e * 0.5f, e * 0.5f, e * 0.5f, e * 0.5f, EmblemNoise);
             ApplyEmblemGlow(emblem);
         }
 
-        private static float Contrast(Color32 a, Color32 b) =>
-            Mathf.Max(Mathf.Abs(a.r - b.r), Mathf.Max(Mathf.Abs(a.g - b.g), Mathf.Abs(a.b - b.b)));
+        private const int GlowNoise = 6;
+        private const int EmblemNoise = 3;
 
         private void ApplyGlow(bool dithered)
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 
@@ -16,42 +17,56 @@ namespace ACCESSGRANTED
     /// glow is on screen, made once per layout on a worker thread (a few million pixels) and
     /// swapped in when ready; until then the stretched Art.Radial stands in.
     ///
-    /// The noise is triangular, in steps of the texture's alpha, sized so that it moves the
-    /// final colour by about one step: a glow of colour C over a background B at strength A
-    /// changes the screen by A * (C - B) per alpha step, so a faint or low-contrast glow needs
-    /// more alpha steps of noise than a bright one.
+    /// The noise is triangular, in steps of the texture's alpha, a fixed number of steps chosen
+    /// so the final colour moves by one to two steps of brightness for every department's
+    /// colours. It does not depend on the colour (the texture is white; the glow is tinted), so
+    /// one texture serves every department at a given size, and switching department in the
+    /// preview does not have to wait for a new one. The last few sizes are kept.
     /// </summary>
     internal sealed class DitheredGlow
     {
         private readonly object _lock = new object();
+        private readonly int _keep;
+        private readonly List<KeyValuePair<string, Texture2D>> _made = new List<KeyValuePair<string, Texture2D>>();
         private Color32[] _ready;
         private int _readyWidth;
         private int _readyHeight;
         private int _wanted;
         private int _readyFor;
-        private Texture2D _texture;
-        private string _key;
         private string _readyKey;
-        private string _textureKey;
+        private string _key;
+        private Texture2D _texture;
 
-        /// <summary>The finished texture, or null while none is ready for the current request.</summary>
+        /// <param name="keep">How many finished sizes to keep for reuse.</param>
+        internal DitheredGlow(int keep)
+        {
+            _keep = Mathf.Max(1, keep);
+        }
+
+        /// <summary>The texture for the current request, or null while it is being made.</summary>
         internal Texture2D Texture => _texture;
 
         /// <summary>
         /// Asks for a glow width x height pixels whose ellipse is centred at (cx, cy) from the
-        /// bottom-left with radii (rx, ry); strength is the alpha the glow is drawn at and
-        /// contrast the largest difference between its colour and what lies under it, 0 to 255.
-        /// Returns true if the current texture already matches.
+        /// bottom-left with radii (rx, ry), with noise of up to <paramref name="steps"/> alpha
+        /// steps either way. True if it is ready now (made before); otherwise it is made on a
+        /// worker thread and Collect swaps it in.
         /// </summary>
-        internal bool Request(int width, int height, float cx, float cy, float rx, float ry, float strength, float contrast, int seed)
+        internal bool Request(int width, int height, float cx, float cy, float rx, float ry, int steps)
         {
-            float perStep = Mathf.Max(0.001f, strength * contrast / 255f);
-            int steps = Mathf.Clamp(Mathf.CeilToInt(1.2f / perStep), 1, 48);
-            string key = $"{width}x{height} {cx:0.0},{cy:0.0} {rx:0.0},{ry:0.0} n{steps} s{seed}";
-            if (key == _textureKey && _texture != null)
+            string key = $"{width}x{height} {cx:0.0},{cy:0.0} {rx:0.0},{ry:0.0} n{steps}";
+            for (int i = 0; i < _made.Count; i++)
             {
-                return true;
+                if (_made[i].Key == key && _made[i].Value != null)
+                {
+                    _texture = _made[i].Value;
+                    _key = key;
+                    // A bake still running for another size must not replace this one when it lands.
+                    Interlocked.Increment(ref _wanted);
+                    return true;
+                }
             }
+            _texture = null;
             if (key == _key)
             {
                 // Already being made.
@@ -59,12 +74,12 @@ namespace ACCESSGRANTED
             }
             _key = key;
             int job = Interlocked.Increment(ref _wanted);
-            ThreadPool.QueueUserWorkItem(_ =>
+            var worker = new Thread(() =>
             {
                 Color32[] pixels;
                 try
                 {
-                    pixels = Bake(width, height, cx, cy, rx, ry, steps, seed);
+                    pixels = Bake(width, height, cx, cy, rx, ry, steps, 7);
                 }
                 catch (Exception e)
                 {
@@ -83,7 +98,13 @@ namespace ACCESSGRANTED
                     _readyFor = job;
                     _readyKey = key;
                 }
-            });
+            })
+            {
+                // Its own thread, not the pool: the game keeps the pool busy while it loads.
+                IsBackground = true,
+                Name = "ACCESS GRANTED glow"
+            };
+            worker.Start();
             return false;
         }
 
@@ -92,6 +113,7 @@ namespace ACCESSGRANTED
         {
             Color32[] pixels;
             int width, height;
+            string key;
             lock (_lock)
             {
                 if (_ready == null || _readyFor != _wanted)
@@ -101,30 +123,25 @@ namespace ACCESSGRANTED
                 pixels = _ready;
                 width = _readyWidth;
                 height = _readyHeight;
-                _textureKey = _readyKey;
+                key = _readyKey;
                 _ready = null;
             }
-            if (_texture != null)
-            {
-                UnityEngine.Object.Destroy(_texture);
-            }
-            _texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 wrapMode = TextureWrapMode.Clamp,
                 filterMode = FilterMode.Point,
                 hideFlags = HideFlags.DontUnloadUnusedAsset
             };
-            _texture.SetPixels32(pixels);
-            _texture.Apply(false, true);
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            _made.Add(new KeyValuePair<string, Texture2D>(key, texture));
+            while (_made.Count > _keep)
+            {
+                UnityEngine.Object.Destroy(_made[0].Value);
+                _made.RemoveAt(0);
+            }
+            _texture = texture;
             return true;
-        }
-
-        /// <summary>Forgets any request in flight, so a stale bake is never swapped in.</summary>
-        internal void Cancel()
-        {
-            Interlocked.Increment(ref _wanted);
-            _key = null;
-            _textureKey = null;
         }
 
         private static Color32[] Bake(int width, int height, float cx, float cy, float rx, float ry, int steps, int seed)
