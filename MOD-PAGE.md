@@ -20,7 +20,7 @@
 
 From the splash screen to the main menu, your launch becomes a TerraGroup sign-in terminal. It shows what EFT is really loading, timed against your own launches, and it's a different department every time.
 
-![Fifteen TerraGroup department logos](https://raw.githubusercontent.com/JoelHauser/ACCESSGRANTED/main/docs/images/departments-collage.png)
+![The fifteen TerraGroup department logos](https://raw.githubusercontent.com/JoelHauser/ACCESSGRANTED/main/docs/images/departments-strip.png)
 
 > **INTERNAL MEMO  //  IT SERVICE DESK**
 > **TO:** All staff
