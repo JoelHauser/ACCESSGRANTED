@@ -276,6 +276,9 @@ namespace ACCESSGRANTED
                 return;
             }
 
+            // What the chatter showed this run (a preview records nothing, so this is a no-op then).
+            Archive.Save();
+
             float now = Now;
             if (Preview)
             {

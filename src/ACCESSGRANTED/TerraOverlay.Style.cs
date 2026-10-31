@@ -972,7 +972,8 @@ namespace ACCESSGRANTED
                 _memoTitle.text = kind + "  //  " + notice.From;
                 _memoTitle.color = tone;
                 _memoStripe.color = tone;
-                _memoBody.text = Lore.Fill(notice.Body, _random);
+                _memoBody.text = Lore.Fill(notice.Body, _random)
+                    + (string.IsNullOrEmpty(notice.Signature) ? string.Empty : "\n<alpha=#80><size=80%>" + notice.Signature + "</size>");
                 _memo.gameObject.SetActive(true);
                 FitMemo();
             }

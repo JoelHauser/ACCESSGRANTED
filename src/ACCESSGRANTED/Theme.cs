@@ -379,6 +379,8 @@ namespace ACCESSGRANTED
         internal NoticeKind Kind;
         internal string From;
         internal string Body;
+        /// <summary>For a memo: who signed it and its reference, shown under the body.</summary>
+        internal string Signature;
     }
 
     /// <summary>
@@ -420,42 +422,16 @@ namespace ACCESSGRANTED
         /// <summary>The notices that slide in during the load, in order: memos, intel, the odd note.</summary>
         internal Notice[] Notices;
 
-        private static readonly string[] CommonHeadlines =
-        {
-            "TERRAGROUP REPORTS RECORD QUARTER",
-            "NORVINSK SPECIAL ECONOMIC ZONE EXPANDS",
-            "TERRAGROUP DENIES ALL ALLEGATIONS",
-            "HR: BADGES MUST BE VISIBLE AT ALL TIMES",
-            "CAFETERIA B CLOSED FOR SANITATION",
-            "PORT AUTHORITY REOPENING DATE TBD",
-            "UNTAR CHECKPOINTS NOW OPERATIONAL",
-            "SPOKESPERSON: 'NOTHING HAPPENED IN TARKOV'",
-            "PARKING LOT C REASSIGNED TO SECURITY CONTRACTORS"
-        };
-
         private static readonly string[] Stocks = { "TGRP", "TG-LABS", "NVSK IDX", "BTC", "RUB/USD", "USEC LTD", "TG-PHARMA" };
-
-        private static readonly string[] Memos =
-        {
-            "THE EAST WING IS CLOSED UNTIL FURTHER NOTICE. STAFF SHOULD NOT ASK WHY.",
-            "SAMPLES, DOCUMENTS AND EQUIPMENT MAY NOT LEAVE THE LABORATORY WITHOUT A SIGNED RELEASE.",
-            "THE EVACUATION PLAN HAS BEEN REVISED. THE PREVIOUS PLAN MUST NOT BE FOLLOWED UNDER ANY CIRCUMSTANCES.",
-            "PAYROLL IS DELAYED DUE TO CIRCUMSTANCES BEYOND OUR CONTROL. THANK YOU FOR YOUR CONTINUED LOYALTY.",
-            "A BLUE KEYCARD HAS BEEN REPORTED LOST. IF FOUND, HAND IT TO SECURITY. DO NOT USE IT.",
-            "THE PORT REMAINS CLOSED. A REOPENING DATE WILL BE ANNOUNCED IN DUE COURSE.",
-            "STAFF ARE REMINDED NOT TO FEED, TRADE WITH OR ENGAGE LOCAL SCAVENGERS.",
-            "PASSWORDS MUST NOW BE AT LEAST 12 CHARACTERS AND MAY NOT CONTAIN THE WORD 'TARKOV'.",
-            "CONGRATULATIONS TO {nick}, EMPLOYEE OF THE MONTH. YOUR PRIZE HAS BEEN PLACED IN YOUR STASH.",
-            "THE FLOOR 3 COFFEE MACHINE IS RESERVED FOR EXECUTIVE STAFF. USE IS LOGGED.",
-            "ALL STAFF MUST CARRY IDENTIFICATION AT ALL TIMES. UNIDENTIFIED PERSONS WILL BE TREATED AS HOSTILE."
-        };
-
-        private static readonly string[] MemoSenders = { "HUMAN RESOURCES", "FACILITIES", "LEGAL", "OFFICE OF THE CEO", "IT DEPARTMENT", "COMPLIANCE" };
 
         /// <param name="preview">A preview always shows a memo and is more likely to fake a denial.</param>
         internal static Variant Roll(System.Random random, ThemeChoice choice, GlitchLevel glitches, int launches, Pins pins, bool preview = false)
         {
             var v = new Variant { Glitches = glitches };
+            // What this launch shows is picked from what the player has not seen lately; a
+            // preview picks the same way but leaves the record alone.
+            Archive.NewRun();
+            Archive.Recording = !preview;
             v.Milestone = launches > 0 && launches % 100 == 0;
 
             DateTime now = DateTime.Now;
@@ -530,11 +506,18 @@ namespace ACCESSGRANTED
 
             v.Ticker = BuildTicker(random, t);
 
-            // Two or three notices a launch, spread over it: the division's memos, regional
-            // intel, and now and then something nobody admits to sending.
+            // Two or three notices a launch, spread over it: the division's memos, memos from
+            // elsewhere in the company, regional intel, and now and then something nobody admits
+            // to sending.
             int count = preview ? 3 : random.Next(2, 4);
             float[] at = { 0.12f, 0.4f, 0.68f };
             v.Notices = new Notice[count];
+            List<string> divisionMemos = Correspondence.MemosFor(t);
+            var commonBodies = new List<string>();
+            foreach (string[] memo in Correspondence.CommonMemos)
+            {
+                commonBodies.Add(memo[1]);
+            }
             for (int i = 0; i < count; i++)
             {
                 var notice = new Notice { At = at[i] + Range(random, 0f, 0.08f) };
@@ -545,7 +528,7 @@ namespace ACCESSGRANTED
                     notice.From = "UNKNOWN SENDER";
                     notice.Body = Lore.EasterEgg(random);
                 }
-                else if (roll < 55)
+                else if (roll < 45)
                 {
                     notice.Kind = NoticeKind.Intel;
                     notice.From = Lore.IntelSender(random);
@@ -555,25 +538,40 @@ namespace ACCESSGRANTED
                 {
                     notice.Kind = NoticeKind.Memo;
                     notice.From = t.Division;
-                    notice.Body = t.Memos[random.Next(t.Memos.Length)];
+                    notice.Body = Archive.PickLine("memo", divisionMemos, random);
+                    notice.Signature = Correspondence.Signature(random, t.Id);
                 }
                 else
                 {
+                    int pick = Archive.Pick("memo", commonBodies, random);
+                    string sender = Correspondence.CommonMemos[pick][0];
                     notice.Kind = NoticeKind.Memo;
-                    notice.From = MemoSenders[random.Next(MemoSenders.Length)];
-                    notice.Body = Memos[random.Next(Memos.Length)];
+                    notice.From = sender;
+                    notice.Body = commonBodies[pick];
+                    notice.Signature = Correspondence.Signature(random, t.Id, sender);
                 }
                 v.Notices[i] = notice;
             }
+            Archive.Save();
             return v;
         }
 
-        /// <summary>One loop of the news ticker: share prices between headlines.</summary>
+        /// <summary>
+        /// One loop of the news ticker: share prices between headlines. The headlines are the
+        /// division's and the company's, the ones the player has not seen lately, with a few
+        /// lines of regional intel among them.
+        /// </summary>
         private static string BuildTicker(System.Random random, Theme theme)
         {
-            var headlines = new List<string>(theme.Headlines);
-            headlines.AddRange(CommonHeadlines);
-            headlines.AddRange(Lore.Headlines(random, 4));
+            const int Count = 8;
+            List<string> pool = Correspondence.HeadlinesFor(theme);
+            var headlines = new List<string>();
+            int intel = random.Next(2, 4);
+            for (int i = 0; i < Count - intel; i++)
+            {
+                headlines.Add(Lore.Fill(Archive.PickLine("headline", pool, random), random));
+            }
+            headlines.AddRange(Lore.Headlines(random, intel));
             for (int i = headlines.Count - 1; i > 0; i--)
             {
                 int j = random.Next(i + 1);
@@ -583,7 +581,7 @@ namespace ACCESSGRANTED
             var builder = new StringBuilder();
             int stocksPerHeadline = theme.Id == ThemeChoice.Finance ? 3 : 1;
             int stock = random.Next(Stocks.Length);
-            for (int h = 0; h < 8; h++)
+            for (int h = 0; h < headlines.Count; h++)
             {
                 for (int s = 0; s < stocksPerHeadline; s++)
                 {
@@ -595,7 +593,7 @@ namespace ACCESSGRANTED
                         .Append(change >= 0f ? "+" : string.Empty).Append(change.ToString("0.00")).Append("%</color>")
                         .Append("     |     ");
                 }
-                builder.Append(headlines[h % headlines.Count]).Append("     |     ");
+                builder.Append(headlines[h]).Append("     |     ");
             }
             return builder.ToString();
         }
@@ -614,48 +612,20 @@ namespace ACCESSGRANTED
 
     /// <summary>
     /// Made-up office chatter for the line under the log: the division's own lines and shared
-    /// ones. Never mixed into the real steps, so the log and its times stay true. Drawn from a
-    /// shuffled bag, so a line does not repeat until the rest have shown.
+    /// ones, picked from what the player has not seen lately (see Archive). Never mixed into the
+    /// real steps, so the log and its times stay true.
     /// </summary>
     internal sealed class Chatter
     {
-        private static readonly string[] Common =
-        {
-            "SYNCING PAYROLL LEDGER",
-            "COMPLIANCE AUDIT Q4  PASSED",
-            "NDA ON FILE  ACKNOWLEDGED",
-            "BADGE 0x{hex}  VERIFIED",
-            "LOADING {mods} APPROVED VENDOR PLUGINS",
-            "SHAREHOLDER BRIEFING  CACHED",
-            "EXPENSE REPORT #{n}  REJECTED",
-            "TIMESHEET  {n} HOURS LOGGED",
-            "HR TICKET #{n}  CLOSED WITHOUT ACTION",
-            "QUARTERLY TARGETS  {pct}% MET",
-            "VPN  NORVINSK OFFICE  CONNECTED",
-            "PRINTER 3B  STILL OFFLINE",
-            "SECURE MAIL  {n} UNREAD",
-            "LEGAL HOLD  APPLIED"
-        };
-
         private readonly System.Random _random;
-        private readonly string[] _lines;
-        private readonly int[] _order;
-        private int _next;
+        private readonly List<string> _division;
+        private readonly string[] _common;
 
         internal Chatter(System.Random random, Theme theme)
         {
             _random = random;
-            var lines = new List<string>(theme.Chatter);
-            // The division's own lines twice, so they come up more than the shared ones.
-            lines.AddRange(theme.Chatter);
-            lines.AddRange(Common);
-            _lines = lines.ToArray();
-            _order = new int[_lines.Length];
-            for (int i = 0; i < _order.Length; i++)
-            {
-                _order[i] = i;
-            }
-            _next = _order.Length;
+            _division = Correspondence.ChatterFor(theme);
+            _common = Correspondence.CommonChatter;
         }
 
         internal string Next()
@@ -671,16 +641,10 @@ namespace ACCESSGRANTED
             {
                 return ":: " + Lore.IntelLine(_random);
             }
-            if (_next >= _order.Length)
-            {
-                for (int i = _order.Length - 1; i > 0; i--)
-                {
-                    int j = _random.Next(i + 1);
-                    (_order[i], _order[j]) = (_order[j], _order[i]);
-                }
-                _next = 0;
-            }
-            string line = _lines[_order[_next++]];
+            // The division's own lines come up more often than the shared ones.
+            string line = roll < 75 && _division.Count > 0
+                ? Archive.PickLine("chatter", _division, _random)
+                : Archive.PickLine("chatter", _common, _random);
             if (line.IndexOf('{') < 0)
             {
                 return ":: " + line;
