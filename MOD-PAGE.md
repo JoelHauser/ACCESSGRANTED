@@ -23,8 +23,12 @@ From the splash screen to the main menu, your launch becomes a TerraGroup sign-i
 ![The fifteen TerraGroup department logos](https://raw.githubusercontent.com/JoelHauser/ACCESSGRANTED/main/docs/images/departments-strip.png)
 
 > **INTERNAL MEMO  //  IT SERVICE DESK**
+>
 > **TO:** All staff
+>
 > **RE:** Signing in at start-up
+>
+> ---
 >
 > A reminder that every company workstation signs in to the employee network when it starts up. Your session opens your department's terminal, with the day's memos, intelligence briefings and news feed.
 >
