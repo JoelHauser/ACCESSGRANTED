@@ -14,15 +14,49 @@ namespace ACCESSGRANTED
         private static Texture2D _band;
 
         /// <summary>
-        /// Opaque in the middle, fading to nothing at the edge of the circle. Big and dithered,
-        /// because a dark gradient stretched across the screen otherwise shows bands.
+        /// Opaque in the middle, fading to nothing at the edge of the circle. Stored in half
+        /// floats where the graphics card takes them: in 8 bits the faint outer part of a glow
+        /// stretched across the screen has only a handful of alpha values, which show as rings.
+        /// The bands that remain from the screen's own 8 bits are broken up by Grain.
         /// </summary>
-        internal static Texture2D Radial => _radial ?? (_radial = Make(256, 256, TextureWrapMode.Clamp, FilterMode.Bilinear, (x, y) =>
+        internal static Texture2D Radial
         {
-            float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(128f, 128f)) / 128f;
-            float a = Mathf.Clamp01(1f - d);
-            return a * a + Dither(x, y);
-        }));
+            get
+            {
+                if (_radial != null)
+                {
+                    return _radial;
+                }
+                const int Size = 256;
+                System.Func<int, int, float> alpha = (x, y) =>
+                {
+                    float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(128f, 128f)) / 128f;
+                    float a = Mathf.Clamp01(1f - d);
+                    return a * a;
+                };
+                if (!SystemInfo.SupportsTextureFormat(TextureFormat.RGBAHalf))
+                {
+                    return _radial = Make(Size, Size, TextureWrapMode.Clamp, FilterMode.Bilinear, alpha);
+                }
+                var pixels = new Color[Size * Size];
+                for (int y = 0; y < Size; y++)
+                {
+                    for (int x = 0; x < Size; x++)
+                    {
+                        pixels[y * Size + x] = new Color(1f, 1f, 1f, alpha(x, y));
+                    }
+                }
+                _radial = new Texture2D(Size, Size, TextureFormat.RGBAHalf, false)
+                {
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Bilinear,
+                    hideFlags = HideFlags.DontUnloadUnusedAsset
+                };
+                _radial.SetPixels(pixels);
+                _radial.Apply(false, true);
+                return _radial;
+            }
+        }
 
         /// <summary>
         /// One 64-pixel grid cell: a one-pixel line along the bottom and left, brighter where they
@@ -91,12 +125,19 @@ namespace ACCESSGRANTED
         private static Texture2D _grain;
 
         /// <summary>
-        /// Fine black grain, one texel per screen pixel, laid over the whole terminal to break up
-        /// the bands an 8-bit screen shows in a wide, dark gradient (the glows). A gradient that
-        /// big is stretched from a small texture, so dither inside that texture comes out in
-        /// blocks; this is dither at the screen's own resolution. It darkens by a random few
-        /// percent, which is about one step of a dark colour in either colour space (a fixed
-        /// amount added instead would be far too strong in a linear one).
+        /// True when Grain lightens (gamma colour space, which EFT uses): then it adds a step or
+        /// two of brightness at most, the same on every colour, invisible on its own, and it can
+        /// lie over the whole screen, text included. False in a linear colour space, where a
+        /// fixed amount added would be far too strong in the darks: there it darkens by a few
+        /// percent instead, which would speckle bright text, so it must go under the text.
+        /// </summary>
+        internal static bool GrainLightens => QualitySettings.activeColorSpace != ColorSpace.Linear;
+
+        /// <summary>
+        /// Fine grain, one texel per screen pixel, to break up the bands an 8-bit screen shows
+        /// in a wide, dark gradient (the glows). A gradient that big is stretched from a small
+        /// texture, so dither inside that texture comes out in blocks; this is dither at the
+        /// screen's own resolution.
         /// </summary>
         internal static Texture2D Grain
         {
@@ -107,15 +148,16 @@ namespace ACCESSGRANTED
                     return _grain;
                 }
                 const int Size = 128;
-                // About a step and a half of a dark colour (an 8-bit value near 25) either way.
-                bool linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
-                byte strength = (byte)(linear ? 34 : 18);
-                AccessGrantedPlugin.Log?.LogInfo($"Grain: {(linear ? "linear" : "gamma")} colour space, strength {strength}/255.");
+                bool lightens = GrainLightens;
+                AccessGrantedPlugin.Log?.LogInfo($"Grain: {(lightens ? "gamma colour space, lightening 0-2 steps" : "linear colour space, darkening")}.");
                 var random = new System.Random(7);
                 var pixels = new Color32[Size * Size];
                 for (int i = 0; i < pixels.Length; i++)
                 {
-                    pixels[i] = new Color32(0, 0, 0, (byte)random.Next(strength + 1));
+                    // Lightening: 0, 1 or 2 steps, 1 most often (triangular, the usual dither).
+                    pixels[i] = lightens
+                        ? new Color32(255, 255, 255, (byte)(random.Next(2) + random.Next(2)))
+                        : new Color32(0, 0, 0, (byte)random.Next(35));
                 }
                 _grain = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
                 {

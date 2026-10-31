@@ -133,7 +133,6 @@ namespace ACCESSGRANTED
         };
         private RawImage _emblemGlow;
         private RawImage _grainLayer;
-        private RawImage _emblemGrain;
         private Shape _ringTrack;
         private Shape _ringProgress;
         private float _ringProgressDrawn = -1f;
@@ -313,6 +312,11 @@ namespace ACCESSGRANTED
             _contentGroup.interactable = false;
             _brand = MakeRect("Brand", transform);
             Stretch(_brand);
+            // Breaks up banding in the glows; see Art.Grain. A lightening grain lies over the
+            // content and the logo (its glow included) and under the intro's covers; a darkening
+            // one must stay under the text, so it goes over the backdrop instead, below.
+            _grainLayer = MakeRaw("Grain", Art.GrainLightens ? transform : _content, Art.Grain, Color.white);
+            Stretch(_grainLayer.rectTransform);
             Transform c = _content;
             Transform brand = _brand;
 
@@ -321,9 +325,11 @@ namespace ACCESSGRANTED
             _glow = MakeRaw("Glow", c, Art.Radial, Glow);
             _grid = MakeRaw("Backdrop", c, Art.Dots, Accent);
             Stretch(_grid.rectTransform);
-            // Over the glows, under everything drawn on them (it would speckle bright text); see Art.Grain.
-            _grainLayer = MakeRaw("Grain", c, Art.Grain, Color.white);
-            Stretch(_grainLayer.rectTransform);
+            if (!Art.GrainLightens)
+            {
+                // Over the glows, under everything drawn on them.
+                _grainLayer.transform.SetAsLastSibling();
+            }
             Isolate(_glow);
             Isolate(_grid);
             BuildBackdropExtras(c);
@@ -333,7 +339,6 @@ namespace ACCESSGRANTED
             Isolate(_emblem);
             _emblemGlow = MakeRaw("EmblemGlow", _emblem, Art.Radial, Primary);
             _alertGlow = MakeRaw("AlertGlow", _emblem, Art.Radial, Warn);
-            _emblemGrain = MakeRaw("Grain", _emblem, Art.Grain, Color.white);
             _ringTrack = Shape.Create("RingTrack", _emblem);
             _ringProgress = Shape.Create("RingProgress", _emblem);
             for (int i = 0; i < _frameParts.Length; i++)
@@ -844,9 +849,6 @@ namespace ACCESSGRANTED
             _emblem.anchoredPosition = new Vector2(Mathf.Round(brand.x), Mathf.Round(brand.y + 175f * u * bs));
             Place(_emblemGlow.rectTransform, 0f, 0f, 460f * u, 460f * u);
             Place(_alertGlow.rectTransform, 0f, 0f, 520f * u, 520f * u);
-            float grain = Mathf.Round(520f * u);
-            Place(_emblemGrain.rectTransform, 0f, 0f, grain, grain);
-            _emblemGrain.uvRect = new Rect(0f, 0f, grain / Art.GrainSize, grain / Art.GrainSize);
             float r = 58f * u;
             float gap = 5f * u;
             for (int i = 0; i < _pieces.Length; i++)
