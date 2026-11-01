@@ -6,7 +6,7 @@
   comes from images, plus three Forge extras:
     - a blockquote followed by a line "{.is-info}" becomes a blue notice box;
     - "## Title {.tabset}" turns the ### headings under it into tabs, up to "{.endtabset}";
-    - YouTube links embed (none used yet; a short clip of a launch would fit under the screenshot).
+    - a YouTube link on a line of its own embeds a player (the showreel, in "Recorded session").
   Check it in the Forge editor's preview before saving.
 
   Images are served from the repository (docs/images), so they show once pushed to main.
@@ -47,6 +47,10 @@ So you have someone on the inside. A contact at the IT Service Desk set up the c
 Somewhere along the way, the system learned your name. Your contact says not to worry about it.
 
 Your contact also runs the quarterly sign-in review.
+
+## Recorded session
+
+https://www.youtube.com/watch?v=mfBwtawBhr8
 
 ## Department directory
 
