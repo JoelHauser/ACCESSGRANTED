@@ -118,8 +118,8 @@ namespace ACCESSGRANTED
         private RawImage _scanlines;
         private RawImage _band;
         private Shape _corners;
-        private RectTransform _shutterTop;
-        private RectTransform _shutterBottom;
+        private Image _shutterTop;
+        private Image _shutterBottom;
         private Image _powerLine;
 
         private RectTransform _emblem;
@@ -208,7 +208,7 @@ namespace ACCESSGRANTED
             if (_instance._previewing)
             {
                 // The game is loading for real: the preview gives way.
-                _instance.Hide();
+                _instance.Hide(release: false);
             }
             if (_instance._phase == Phase.Loading)
             {
@@ -412,8 +412,8 @@ namespace ACCESSGRANTED
             Isolate(_band);
 
             // The intro's covers, over the content.
-            _shutterTop = MakeImage("ShutterTop", transform, Color.black).rectTransform;
-            _shutterBottom = MakeImage("ShutterBottom", transform, Color.black).rectTransform;
+            _shutterTop = MakeImage("ShutterTop", transform, Color.black);
+            _shutterBottom = MakeImage("ShutterBottom", transform, Color.black);
             _powerLine = MakeImage("PowerLine", transform, Color.white);
             _introTitle = MakeText("IntroTitle", transform, TextAlignmentOptions.Center, Text);
             _introTitle.text = "TERRAGROUP";
@@ -558,7 +558,11 @@ namespace ACCESSGRANTED
             }
         }
 
-        private void Hide()
+        /// <param name="release">
+        /// False when something shows again straight away (the next preview, or the game's load
+        /// taking over from one): the glows are kept, so it does not wait for them to bake again.
+        /// </param>
+        private void Hide(bool release = true)
         {
             EndFx();
             EndPreview();
@@ -569,7 +573,27 @@ namespace ACCESSGRANTED
             }
             _screen = null;
             _status = null;
+            if (release)
+            {
+                Release();
+            }
             gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Lets go of what only a showing terminal needs: the glows (the screen's is the size of
+        /// the screen, 8 to 33 MB by resolution), the ambient drawing and the fingerprint. After
+        /// the launch nothing shows again unless the game goes back to its loading screen or a
+        /// preview is asked for, and either lays out again, which makes them anew.
+        /// </summary>
+        private void Release()
+        {
+            _glow.texture = null;
+            _emblemGlow.texture = null;
+            _glowBake.Release();
+            _emblemBake.Release();
+            ClearAmbient();
+            Fingerprint.Release();
         }
 
         private void Grant(float realTime)

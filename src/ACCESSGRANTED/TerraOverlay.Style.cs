@@ -67,7 +67,6 @@ namespace ACCESSGRANTED
         private float _memoX;
         private float _memoOff;
 
-
         private Image _flash;
         private TextMeshProUGUI _introTitle;
         private TextMeshProUGUI _introSub;
@@ -177,13 +176,12 @@ namespace ACCESSGRANTED
             _memoTitle.color = Accent;
             _memoBody.color = Text;
 
-
             Color32 cover = _variant.Intro == IntroKind.Wipe ? Primary
                 : _variant.Intro == IntroKind.TitleCard ? Ink
                 : _variant.Intro == IntroKind.Doors ? Color32.Lerp(Ink, Primary, 0.22f)
                 : new Color32(0, 0, 0, 255);
-            _shutterTop.GetComponent<Image>().color = cover;
-            _shutterBottom.GetComponent<Image>().color = cover;
+            _shutterTop.color = cover;
+            _shutterBottom.color = cover;
             _powerLine.color = _variant.Intro == IntroKind.Crt ? Color32.Lerp(Accent, new Color32(255, 255, 255, 255), 0.6f) : Accent;
             _introTitle.color = Text;
             _introSub.color = Accent;
@@ -281,12 +279,6 @@ namespace ACCESSGRANTED
             float panelWidth = 0f;
             float logX = 0f;
 
-            // The department's detail, in the space the layout leaves: beside the column, under
-            // the readout, in the open part of the sidebar layout, or in the dock's top corner.
-            const float DetailWidth = 340f;
-            float scale;
-            Vector2 spot;
-
             switch (kind)
             {
                 case LayoutKind.Split:
@@ -296,7 +288,6 @@ namespace ACCESSGRANTED
                     brand = new Vector2(-side * cw * 0.23f, -90f * u);
                     rx = side * cw * 0.2f;
                     ry = 210f * u;
-                    spot = new Vector2(rx, -262f * u);
                     break;
                 }
                 case LayoutKind.Sidebar:
@@ -308,7 +299,6 @@ namespace ACCESSGRANTED
                     rx = centre;
                     ry = 160f * u;
                     barWidth = panelWidth - 120f * u;
-                    spot = new Vector2(-w * 0.5f + panelWidth + (w - panelWidth - inset) * 0.5f, -50f * u);
                     break;
                 }
                 case LayoutKind.Dock:
@@ -318,18 +308,9 @@ namespace ACCESSGRANTED
                     barWidth = Mathf.Min(600f * u, (w - 2f * inset - 120f * u) * 0.5f);
                     rx = -(barWidth * 0.5f + 40f * u);
                     logX = barWidth * 0.5f + 40f * u;
-                    scale = Mathf.Min(1f, (w * 0.5f - inset - 20f * u - 340f * u) / (DetailWidth * u));
-                    spot = new Vector2(-(w * 0.5f - inset - 20f * u - DetailWidth * u * scale * 0.5f), 270f * u);
-                    break;
-                }
-                default:
-                {
-                    scale = Mathf.Min(1.1f, (w * 0.5f - inset - 340f * u) / (DetailWidth * u));
-                    spot = new Vector2(-(w * 0.5f - inset - 10f * u - DetailWidth * u * scale * 0.5f), -30f * u);
                     break;
                 }
             }
-            _panelSpots[0] = spot;
 
             // Under the current step's detail line, with room so the two never touch.
             log = new Vector2(rx, ry - 224f * u);
@@ -380,7 +361,6 @@ namespace ACCESSGRANTED
         {
             float u = _u;
             Theme theme = _variant.Theme;
-
 
             // Like the ambient drawings, these two keep to the space the layout leaves free of
             // text: the taller zone, and the strip under the readout.
@@ -868,8 +848,8 @@ namespace ACCESSGRANTED
                     float p = Mathf.Clamp01(clock / length);
                     float ease = p * p * (3f - 2f * p);
                     float x = w * ease;
-                    Place(_shutterTop, x, 0f, w + 4f, h + 4f);
-                    _shutterTop.GetComponent<Image>().canvasRenderer.SetAlpha(1f);
+                    Place(_shutterTop.rectTransform, x, 0f, w + 4f, h + 4f);
+                    _shutterTop.canvasRenderer.SetAlpha(1f);
                     Place(_powerLine.rectTransform, x - w * 0.5f, 0f, Mathf.Max(3f, Mathf.Round(6f * _u)), h + 4f);
                     _powerLine.canvasRenderer.SetAlpha(1f);
                     break;
@@ -881,10 +861,10 @@ namespace ACCESSGRANTED
                     float ease = p * p * (3f - 2f * p);
                     float half = w * 0.5f;
                     float open = Mathf.Round(half * ease);
-                    Place(_shutterTop, -half * 0.5f - open, 0f, half + 2f, h + 4f);
-                    Place(_shutterBottom, half * 0.5f + open, 0f, half + 2f, h + 4f);
-                    _shutterTop.GetComponent<Image>().canvasRenderer.SetAlpha(1f);
-                    _shutterBottom.GetComponent<Image>().canvasRenderer.SetAlpha(1f);
+                    Place(_shutterTop.rectTransform, -half * 0.5f - open, 0f, half + 2f, h + 4f);
+                    Place(_shutterBottom.rectTransform, half * 0.5f + open, 0f, half + 2f, h + 4f);
+                    _shutterTop.canvasRenderer.SetAlpha(1f);
+                    _shutterBottom.canvasRenderer.SetAlpha(1f);
                     float seam = Mathf.Clamp01(clock / 0.2f) * (1f - ease);
                     Place(_powerLine.rectTransform, 0f, 0f, Mathf.Max(2f, Mathf.Round(2f * _u)), h * Mathf.Clamp01(clock / 0.2f));
                     _powerLine.canvasRenderer.SetAlpha(seam);
@@ -897,10 +877,10 @@ namespace ACCESSGRANTED
         private void PlaceShutters(float gap, float w, float h, float alpha)
         {
             float shutter = h * 0.5f - gap + 2f;
-            Place(_shutterTop, 0f, gap + shutter * 0.5f - 1f, w + 4f, shutter);
-            Place(_shutterBottom, 0f, -(gap + shutter * 0.5f - 1f), w + 4f, shutter);
-            _shutterTop.GetComponent<Image>().canvasRenderer.SetAlpha(alpha);
-            _shutterBottom.GetComponent<Image>().canvasRenderer.SetAlpha(alpha);
+            Place(_shutterTop.rectTransform, 0f, gap + shutter * 0.5f - 1f, w + 4f, shutter);
+            Place(_shutterBottom.rectTransform, 0f, -(gap + shutter * 0.5f - 1f), w + 4f, shutter);
+            _shutterTop.canvasRenderer.SetAlpha(alpha);
+            _shutterBottom.canvasRenderer.SetAlpha(alpha);
         }
 
         private static void SetActive(GameObject go, bool active)
@@ -992,9 +972,7 @@ namespace ACCESSGRANTED
             float emblemScale = 1f;
             float everything = 1f - ease;
             float rest = 1f;
-            // A scene has no separate logo layer to hold on, so its sting is a plain zoom.
-            OutroKind outro = _sceneActive && _variant.Outro == OutroKind.Sting ? OutroKind.Zoom : _variant.Outro;
-            switch (outro)
+            switch (_variant.Outro)
             {
                 case OutroKind.Lift:
                     // The picture slides up and away, like a security shutter going up.

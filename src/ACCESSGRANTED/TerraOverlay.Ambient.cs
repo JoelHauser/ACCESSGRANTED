@@ -186,7 +186,7 @@ namespace ACCESSGRANTED
                 for (float x = start; x <= half + Period; x += 5f)
                 {
                     float p = ((x - start) % Period) / Period;
-                    Vector2 point = P(x, Ecg.Wave(p) * 0.72f);
+                    Vector2 point = P(x, Wave(p) * 0.72f);
                     if (x > start)
                     {
                         _trace.Line(last, point, 2f * U, Line);
@@ -194,6 +194,18 @@ namespace ACCESSGRANTED
                     last = point;
                 }
                 _trace.Commit();
+            }
+
+            /// <summary>One heartbeat: P wave, the QRS spike, T wave, flat between.</summary>
+            private static float Wave(float p)
+            {
+                if (p >= 0.10f && p < 0.18f) return 8f * Mathf.Sin(Mathf.PI * (p - 0.10f) / 0.08f);
+                if (p >= 0.24f && p < 0.27f) return -10f * (p - 0.24f) / 0.03f;
+                if (p >= 0.27f && p < 0.30f) return Mathf.Lerp(-10f, 58f, (p - 0.27f) / 0.03f);
+                if (p >= 0.30f && p < 0.33f) return Mathf.Lerp(58f, -18f, (p - 0.30f) / 0.03f);
+                if (p >= 0.33f && p < 0.36f) return Mathf.Lerp(-18f, 0f, (p - 0.33f) / 0.03f);
+                if (p >= 0.46f && p < 0.60f) return 14f * Mathf.Sin(Mathf.PI * (p - 0.46f) / 0.14f);
+                return 0f;
             }
 
             internal override void Animate(float t)
@@ -734,6 +746,16 @@ namespace ACCESSGRANTED
                     return null;
                 }
                 return _texture;
+            }
+
+            /// <summary>Lets the print go; the next Internal Affairs drawing reads it again.</summary>
+            internal static void Release()
+            {
+                if (_texture != null)
+                {
+                    UnityEngine.Object.Destroy(_texture);
+                    _texture = null;
+                }
             }
 
             internal override void Animate(float t)

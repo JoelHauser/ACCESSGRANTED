@@ -100,7 +100,7 @@ namespace ACCESSGRANTED
             if (_phase != Phase.Hidden)
             {
                 StartupTracker.EndRun();
-                Hide();
+                Hide(release: false);
             }
             if (!StartupTracker.BeginPreview())
             {
