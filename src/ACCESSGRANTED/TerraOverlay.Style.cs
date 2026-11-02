@@ -663,7 +663,8 @@ namespace ACCESSGRANTED
         {
             BarKind kind = _variant.Bar;
             int first = StartupTracker.FirstStep;
-            int shown = _segments.Length - first;
+            int last = StartupTracker.LastStep;
+            int shown = StartupTracker.RunSteps;
             bool thin = kind == BarKind.Thin;
             float segmentGap = Mathf.Round((thin ? 3f : shown > 12 ? 4f : 6f) * _u);
             float segmentWidth = Mathf.Floor((barWidth - segmentGap * (shown - 1)) / shown);
@@ -671,7 +672,7 @@ namespace ACCESSGRANTED
             float rowWidth = segmentWidth * shown + segmentGap * (shown - 1);
             for (int i = 0; i < _segments.Length; i++)
             {
-                _segments[i].gameObject.SetActive(kind != BarKind.Solid && i >= first);
+                _segments[i].gameObject.SetActive(kind != BarKind.Solid && i >= first && i <= last);
                 float x = centre - rowWidth * 0.5f + (i - first) * (segmentWidth + segmentGap) + segmentWidth * 0.5f;
                 Place(_segments[i].rectTransform, x, barTop, segmentWidth, segmentHeight);
             }
@@ -1014,7 +1015,7 @@ namespace ACCESSGRANTED
             }
         }
 
-        /// <summary>How long the fade-out takes; the sting holds on the logo, so it runs longer.</summary>
-        private float OutroTime => _variant.Outro == OutroKind.Sting ? 1f : FadeTime;
+        /// <summary>How long the fade-out takes; the sting holds on the logo, so it runs longer. A raid's never holds the raid back.</summary>
+        private float OutroTime => Mathf.Min(Deploying ? DeployOutroTime : float.MaxValue, _variant.Outro == OutroKind.Sting ? 1f : FadeTime);
     }
 }

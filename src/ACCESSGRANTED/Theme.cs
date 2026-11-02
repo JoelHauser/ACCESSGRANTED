@@ -404,6 +404,33 @@ namespace ACCESSGRANTED
         /// <summary>The notices that slide in during the load, in order: memos, intel, the odd note.</summary>
         internal Notice[] Notices;
 
+        /// <summary>
+        /// Takes the look of <paramref name="from"/>: its division, parts, rings, header and badge,
+        /// so a later load in the session is the terminal the player signed in to. The words (the
+        /// notices, the ticker, the closing line) stay this roll's own.
+        /// </summary>
+        internal void KeepLook(Variant from)
+        {
+            Theme = from.Theme;
+            Backdrop = from.Backdrop;
+            Frame = from.Frame;
+            Intro = from.Intro;
+            Bar = from.Bar;
+            Outro = from.Outro;
+            Layout = from.Layout;
+            DashCount = from.DashCount;
+            DashMajorEvery = from.DashMajorEvery;
+            DashSpin = from.DashSpin;
+            ArcCount = from.ArcCount;
+            ArcSweep = from.ArcSweep;
+            ArcStart = from.ArcStart;
+            ArcSpin = from.ArcSpin;
+            ChartSeed = from.ChartSeed;
+            Header = from.Header;
+            TopRight = from.TopRight;
+            Milestone = from.Milestone;
+        }
+
         private static readonly string[] Stocks = { "TGRP", "TG-LABS", "NVSK IDX", "BTC", "RUB/USD", "USEC LTD", "TG-PHARMA" };
 
         /// <param name="preview">

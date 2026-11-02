@@ -5,11 +5,20 @@ using HarmonyLib;
 
 namespace ACCESSGRANTED
 {
+    /// <summary>What the raid-loading terminal does when Deploy Screen Overhaul is installed too.</summary>
+    public enum DeployScreenMode
+    {
+        StandAside,
+        TakeTurns,
+        AlwaysTerminal
+    }
+
     /// <summary>
     /// Replaces the bare "Loading profile data..." wait with a TerraGroup terminal showing what
     /// the game is actually doing: each load step as it starts, how long the finished ones took,
     /// and progress timed from the last launch. See <see cref="StartupTracker"/> for the steps
-    /// and <see cref="TerraOverlay"/> for the drawing.
+    /// and <see cref="TerraOverlay"/> for the drawing. Optionally the same terminal shows raid
+    /// loads too.
     /// </summary>
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public class AccessGrantedPlugin : BaseUnityPlugin
@@ -32,6 +41,12 @@ namespace ACCESSGRANTED
         internal static ConfigEntry<BarKind> Bar;
         internal static ConfigEntry<OutroKind> Ending;
         internal static ConfigEntry<KeyboardShortcut> PreviewKey;
+        internal static ConfigEntry<bool> RaidLoading;
+        internal static ConfigEntry<DeployScreenMode> WithDeployScreen;
+        internal static ConfigEntry<bool> ShowMapName;
+
+        private const string DeployScreenGuid = "com.mybutthasarash.deployscreen";
+        private const string ClassifiedGuid = "com.mybutthasarash.classified";
 
         private void Update()
         {
@@ -40,6 +55,72 @@ namespace ACCESSGRANTED
                 TerraOverlay.StartPreview();
             }
             TerraOverlay.PreviewInput();
+            TerraOverlay.DeployInput();
+        }
+
+        /// <summary>
+        /// A raid is loading: whether this terminal shows it. Off unless switched on. With Deploy
+        /// Screen Overhaul installed it stands aside by default, or they take turns. With
+        /// CLASSIFIED installed, raid loads go to whichever terminal showed this launch, so the
+        /// player keeps the one they signed in to; the other takes them only if that one has raid
+        /// loads off. Counts the raid either way, so taking turns stays in step.
+        /// </summary>
+        internal static bool ShowThisDeploy()
+        {
+            StartupTracker.CountDeploy();
+            if (!Enabled.Value || !RaidLoading.Value)
+            {
+                return false;
+            }
+            if (BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(DeployScreenGuid))
+            {
+                switch (WithDeployScreen.Value)
+                {
+                    case DeployScreenMode.StandAside:
+                        return false;
+                    case DeployScreenMode.TakeTurns:
+                        if (StartupTracker.Deploys % 2 == 0)
+                        {
+                            Log.LogInfo("Deploy Screen Overhaul is installed: this raid load is its turn.");
+                            return false;
+                        }
+                        break;
+                }
+            }
+            if (ClassifiedShowsThisSession())
+            {
+                Log.LogInfo("CLASSIFIED showed this launch: its terminal shows the raid loads too.");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Whether CLASSIFIED showed this launch and shows raid loads, from its plugin and its
+        /// settings. Asked when a raid loads, since it may load after this plugin.
+        /// </summary>
+        private static bool ClassifiedShowsThisSession()
+        {
+            try
+            {
+                if (!BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(ClassifiedGuid, out PluginInfo info) || info.Instance == null)
+                {
+                    return false;
+                }
+                ConfigFile config = info.Instance.Config;
+                if (!config.TryGetEntry(new ConfigDefinition("General", "Enabled"), out ConfigEntry<bool> enabled) || !enabled.Value
+                    || !config.TryGetEntry(new ConfigDefinition("Raid Loading", "Show While Loading Raids"), out ConfigEntry<bool> raids) || !raids.Value)
+                {
+                    return false;
+                }
+                object owns = info.Instance.GetType().GetProperty("OwnsThisLaunch")?.GetValue(null, null);
+                return owns is bool b && b;
+            }
+            catch (System.Exception e)
+            {
+                Log.LogDebug("Could not read CLASSIFIED's raid setting: " + e.Message);
+                return false;
+            }
         }
 
         /// <summary>The plugin's GUID while it was called Startup Progress.</summary>
@@ -70,7 +151,15 @@ namespace ACCESSGRANTED
                 "How the screen leaves for the main menu. Random lets each department pick one of its own.");
             PreviewKey = Config.Bind("Preview", "Preview Key", new KeyboardShortcut(UnityEngine.KeyCode.F9, UnityEngine.KeyCode.LeftControl),
                 "In the main menu, plays the terminal with a pretend load. While it shows: Left/Right change department, "
-                + "Up/Down change layout, Space re-rolls the rest, R replays, Esc closes.");
+                + "Up/Down change layout, Space re-rolls the rest, T switches between a launch and a raid load, R replays, Esc closes.");
+            RaidLoading = Config.Bind("Raid Loading", "Show While Loading Raids", false,
+                "Also show the terminal while a raid loads, from the deploy screen to the raid: the same department you signed in to, "
+                + "the game's real load steps, the countdown, then into the raid. One notice at most. Esc cancels the raid while the game allows it.");
+            WithDeployScreen = Config.Bind("Raid Loading", "With Deploy Screen Overhaul", DeployScreenMode.StandAside,
+                "Only matters when Deploy Screen Overhaul is installed too, since both draw the raid loading screen. "
+                + "Stand Aside leaves raid loads to it; Take Turns alternates raids; Always Terminal shows this terminal every raid.");
+            ShowMapName = Config.Bind("Raid Loading", "Show Map Name", false,
+                "Name the map on the raid-loading terminal. Off gives it a site code instead.");
 
             StartupTracker.LoadTimings();
             Patches.Apply(new Harmony(PluginGuid));

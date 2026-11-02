@@ -68,6 +68,13 @@ namespace ACCESSGRANTED
         private static TerraOverlay _instance;
 
         private Variant _variant;
+
+        /// <summary>
+        /// The terminal the player signed in to this session, once a launch has reached the menu.
+        /// Every later load (a raid, the sign-in after one) keeps its division and look, so the
+        /// session reads as one terminal; only the words are new each time.
+        /// </summary>
+        private Variant _sessionLook;
         private System.Random _random;
         private Chatter _chatterSource;
         private string _grantText;
@@ -451,10 +458,22 @@ namespace ACCESSGRANTED
                 _random = new System.Random(Environment.TickCount);
             }
             // A preview brings its own roll, picked with the preview's keys.
-            _variant = _previewing && _previewVariant != null
-                ? _previewVariant
-                : Variant.Roll(_random, AccessGrantedPlugin.Theme.Value, AccessGrantedPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig(), preview: !record);
+            if (_previewing && _previewVariant != null)
+            {
+                _variant = _previewVariant;
+            }
+            else
+            {
+                Variant look = _sessionLook;
+                ThemeChoice theme = look != null ? look.Theme.Id : AccessGrantedPlugin.Theme.Value;
+                _variant = Variant.Roll(_random, theme, AccessGrantedPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig(), preview: !record);
+                if (look != null)
+                {
+                    _variant.KeepLook(look);
+                }
+            }
             _chatterSource = new Chatter(_random, _variant.Theme);
+            DeployRoll();
         }
 
         /// <summary>Recolours and retexts everything that is not rebuilt by <see cref="Layout"/>.</summary>
@@ -496,7 +515,7 @@ namespace ACCESSGRANTED
             _topLeft.text = _variant.Header;
             _topRight.text = _variant.TopRight;
             _bootSubtitle = !(StartupTracker.Current >= (int)StepId.Connect);
-            _subtitle.text = theme.Division + (_bootSubtitle ? "  //  STARTING UP" : "  //  SIGNING IN");
+            _subtitle.text = Subtitle(_bootSubtitle);
             ApplyStyle();
             AccessGrantedPlugin.Log.LogInfo(
                 $"Terminal: {theme.Id} ({_variant.Layout} layout, {_variant.Backdrop}, {_variant.Frame} frame, {_variant.Intro} intro, {_variant.Bar} bar, {_variant.Outro} ending), glitches {_variant.Glitches}, line '{_variant.GrantText}'"
@@ -573,6 +592,8 @@ namespace ACCESSGRANTED
             }
             _screen = null;
             _status = null;
+            _deployScreen = null;
+            CanCancel = false;
             if (release)
             {
                 Release();
@@ -581,19 +602,23 @@ namespace ACCESSGRANTED
         }
 
         /// <summary>
-        /// Lets go of what only a showing terminal needs: the glows (the screen's is the size of
-        /// the screen, 8 to 33 MB by resolution), the ambient drawing and the fingerprint. After
-        /// the launch nothing shows again unless the game goes back to its loading screen or a
-        /// preview is asked for, and either lays out again, which makes them anew.
+        /// Lets go of what only a showing terminal needs: the ambient drawing and the fingerprint,
+        /// and with raid loads off the glows too (the screen's is the size of the screen, 8 to 33
+        /// MB by resolution). The next show lays out again, which makes them anew; with raid loads
+        /// on the glows are kept, so a raid's terminal comes up as finished as the launch's.
         /// </summary>
         private void Release()
         {
+            ClearAmbient();
+            Fingerprint.Release();
+            if (AccessGrantedPlugin.RaidLoading.Value)
+            {
+                return;
+            }
             _glow.texture = null;
             _emblemGlow.texture = null;
             _glowBake.Release();
             _emblemBake.Release();
-            ClearAmbient();
-            Fingerprint.Release();
         }
 
         private void Grant(float realTime)
@@ -601,6 +626,11 @@ namespace ACCESSGRANTED
             // Close the run first: the times are how long it took to reach the menu.
             float elapsed = StartupTracker.Elapsed;
             StartupTracker.EndRun();
+            if (!_previewing && !Deploying && _sessionLook == null)
+            {
+                // The terminal the player signed in to: the rest of the session keeps it.
+                _sessionLook = _variant;
+            }
             EndFx();
             _ringKick = 0f;
             _phase = Phase.Granted;
@@ -621,7 +651,7 @@ namespace ACCESSGRANTED
                 ? "WELCOME BACK, " + nickname.ToUpperInvariant()
                 : _variant.GrantText;
 
-            int steps = StartupTracker.StepCount - StartupTracker.FirstStep;
+            int steps = StartupTracker.RunSteps;
             _stepCounter.text = $"STEP <mspace=0.62em>{steps:00}</mspace> / {steps:00}";
             _percent.text = "<mspace=0.62em>100</mspace>%";
             // A run headed for a fake denial keeps everyone guessing until the menu settles.
@@ -639,10 +669,14 @@ namespace ACCESSGRANTED
             _chatter.text = ":: HAVE A PRODUCTIVE DAY";
             _chatter.maxVisibleCharacters = 0;
             _chatterShownAt = _animClock;
-            RebuildLog(StartupTracker.StepCount);
+            RebuildLog(StartupTracker.LastStep + 1);
             for (int i = 0; i < _segments.Length; i++)
             {
                 _segmentFills[i].enabled = false;
+            }
+            if (Deploying)
+            {
+                GrantDeploy();
             }
             SetSegments(Accent);
             _bottomLeft.text = $"ELAPSED <mspace=0.62em>{elapsed:0.0}</mspace>s";
@@ -803,6 +837,11 @@ namespace ACCESSGRANTED
                 }
                 return;
             }
+            if (Deploying)
+            {
+                WatchDeploy(realTime);
+                return;
+            }
 
             bool haveScreen = _screen != null;
             bool screenUp = haveScreen && _screen.gameObject.activeInHierarchy;
@@ -926,9 +965,11 @@ namespace ACCESSGRANTED
             SetText(_topRight, halfW - cornerWidth * 0.5f, halfH - 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomLeft, -halfW + cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomRight, halfW - cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
-            string lastSync = StartupTracker.LastTotal > 0f
-                ? $"LAST SYNC <mspace=0.62em>{StartupTracker.LastTotal:0.0}</mspace>s"
-                : "LAST SYNC  --";
+            float last = Deploying ? StartupTracker.LastDeployTotal : StartupTracker.LastTotal;
+            string lastName = Deploying ? "LAST DEPLOY" : "LAST SYNC";
+            string lastSync = last > 0f
+                ? $"{lastName} <mspace=0.62em>{last:0.0}</mspace>s"
+                : lastName + "  --";
             _bottomRight.text = $"CLIENT {Application.version}  //  {lastSync}";
 
             LayoutStyle(size, inset, halfH);
@@ -1093,12 +1134,12 @@ namespace ACCESSGRANTED
                     Beat(t);
                 }
                 int firstStep = StartupTracker.FirstStep;
-                _stepCounter.text = $"STEP <mspace=0.62em>{current - firstStep + 1:00}</mspace> / {StartupTracker.StepCount - firstStep:00}";
+                _stepCounter.text = $"STEP <mspace=0.62em>{current - firstStep + 1:00}</mspace> / {StartupTracker.RunSteps:00}";
                 bool boot = current < (int)StepId.Connect;
                 if (boot != _bootSubtitle)
                 {
                     _bootSubtitle = boot;
-                    _subtitle.text = _variant.Theme.Division + (boot ? "  //  STARTING UP" : "  //  SIGNING IN");
+                    _subtitle.text = Subtitle(boot);
                 }
                 _currentLabel.text = "> " + StartupTracker.Labels[current].ToUpperInvariant();
                 _currentLabel.color = Text;
@@ -1135,14 +1176,14 @@ namespace ACCESSGRANTED
             if (tenths != _shownStepTenths)
             {
                 _shownStepTenths = tenths;
-                _currentTime.text = $"<mspace=0.62em>{tenths / 10f:0.0}</mspace>s";
+                _currentTime.text = StepTimeText(current, tenths);
             }
 
             // Running well past this machine's usual time for the step: say so, in the warning
             // colour. Only once a full launch has set the usual times; the defaults are guesses.
             float expected = StartupTracker.ExpectedSeconds(current);
             float over = StartupTracker.StepElapsed - expected;
-            bool slow = StartupTracker.HasBaseline && over > Mathf.Max(SlowAfter, expected * 0.5f);
+            bool slow = StartupTracker.HasBaseline && CanRunSlow(current) && over > Mathf.Max(SlowAfter, expected * 0.5f);
             bool wasSlow = _slow;
             if (slow != _slow)
             {
@@ -1238,7 +1279,7 @@ namespace ACCESSGRANTED
             if (tenths != _shownElapsedTenths)
             {
                 _shownElapsedTenths = tenths;
-                _bottomLeft.text = $"ELAPSED <mspace=0.62em>{tenths / 10f:0.0}</mspace>s";
+                _bottomLeft.text = ClockText(tenths);
             }
         }
 
