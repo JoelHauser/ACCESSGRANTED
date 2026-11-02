@@ -18,6 +18,12 @@ namespace ACCESSGRANTED
         private readonly List<UIVertex> _vertices = new List<UIVertex>();
         private readonly List<int> _indices = new List<int>();
 
+        // Scratch space for the polygons, shared by every shape: the drawings rebuilt each
+        // frame (the pipework's flow) then make no garbage. Main thread only, like all UI.
+        private static readonly Vector2[] Tri3 = new Vector2[3];
+        private static readonly Vector2[] Quad4 = new Vector2[4];
+        private static Vector2[] _outer = new Vector2[16];
+
         /// <summary>Width of the soft edge, in canvas units. One pixel on a pixel-sized canvas.</summary>
         internal float Feather = 1f;
 
@@ -72,7 +78,11 @@ namespace ACCESSGRANTED
             float outward = area > 0f ? 1f : -1f;
 
             // Each corner's fringe point sits along the mitre of its two edges.
-            var outer = new Vector2[n];
+            if (_outer.Length < n)
+            {
+                _outer = new Vector2[n];
+            }
+            Vector2[] outer = _outer;
             for (int i = 0; i < n; i++)
             {
                 Vector2 previous = points[(i + n - 1) % n];
@@ -107,7 +117,13 @@ namespace ACCESSGRANTED
             }
         }
 
-        internal void Tri(Vector2 a, Vector2 b, Vector2 c, Color32 color) => Polygon(new[] { a, b, c }, color);
+        internal void Tri(Vector2 a, Vector2 b, Vector2 c, Color32 color)
+        {
+            Tri3[0] = a;
+            Tri3[1] = b;
+            Tri3[2] = c;
+            Polygon(Tri3, color);
+        }
 
         /// <summary>
         /// A filled rectangle with rounded corners, each with its own radius (0 for square),
@@ -160,7 +176,11 @@ namespace ACCESSGRANTED
         internal void Line(Vector2 a, Vector2 b, float width, Color32 color)
         {
             Vector2 side = new Vector2(-(b - a).y, (b - a).x).normalized * (width * 0.5f);
-            Polygon(new[] { a - side, a + side, b + side, b - side }, color);
+            Quad4[0] = a - side;
+            Quad4[1] = a + side;
+            Quad4[2] = b + side;
+            Quad4[3] = b - side;
+            Polygon(Quad4, color);
         }
 
         /// <summary>A band between two radii, clockwise from <paramref name="startDegrees"/> (0 = up), soft on every side.</summary>

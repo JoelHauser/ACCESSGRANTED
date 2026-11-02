@@ -3,6 +3,7 @@ using System.Reflection;
 using Comfort.Common;
 using EFT;
 using EFT.UI;
+using EFT.UI.Matchmaker;
 using HarmonyLib;
 
 namespace ACCESSGRANTED
@@ -57,6 +58,7 @@ namespace ACCESSGRANTED
             }
 
             MenuBackgroundFix.Apply(harmony);
+            ApplyDeploy(harmony);
 
             MethodInfo show = AccessTools.Method(typeof(ProfileLoadingScreen), nameof(ProfileLoadingScreen.Show), new[] { typeof(bool) });
             if (show == null)
@@ -156,6 +158,78 @@ namespace ACCESSGRANTED
                 AccessGrantedPlugin.Log.LogDebug($"No profile detail: {e.Message}");
             }
         }
+
+        /// <summary>
+        /// The raid load: the deploy screen showing (the run starts in a prefix, since the screen
+        /// sends its first status from inside Show), its statuses, whether it can be cancelled, the
+        /// final countdown, and the raid starting. Each hook stands alone: a missing one is logged
+        /// and the rest still work.
+        /// </summary>
+        private static void ApplyDeploy(Harmony harmony)
+        {
+            MethodInfo show = null;
+            foreach (MethodInfo method in typeof(MatchmakerTimeHasCome).GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+            {
+                if (method.Name == nameof(MatchmakerTimeHasCome.Show) && method.GetParameters().Length == 3)
+                {
+                    show = method;
+                }
+            }
+            if (show == null)
+            {
+                AccessGrantedPlugin.Log.LogWarning("MatchmakerTimeHasCome.Show not found; the terminal will not show while raids load.");
+                return;
+            }
+            harmony.Patch(show, prefix: new HarmonyMethod(typeof(Patches), nameof(DeployShown)));
+            DeployHook(harmony, AccessTools.Method(typeof(MatchmakerTimeHasCome), nameof(MatchmakerTimeHasCome.ChangeStatus)), prefix: nameof(DeployStatus));
+            DeployHook(harmony, AccessTools.Method(typeof(MatchmakerTimeHasCome), nameof(MatchmakerTimeHasCome.ChangeCancelButtonVisibility)), postfix: nameof(CancelAvailable));
+            DeployHook(harmony, AccessTools.Method(typeof(MatchmakerFinalCountdown), nameof(MatchmakerFinalCountdown.Show), new[] { typeof(Profile), typeof(DateTime) }), postfix: nameof(CountdownShown));
+            DeployHook(harmony, AccessTools.Method(typeof(GameWorld), nameof(GameWorld.OnGameStarted)), postfix: nameof(RaidStarted));
+        }
+
+        private static void DeployHook(Harmony harmony, MethodInfo target, string prefix = null, string postfix = null)
+        {
+            if (target == null)
+            {
+                AccessGrantedPlugin.Log.LogWarning($"No method found for raid-load hook '{prefix ?? postfix}'; the raid-loading terminal works without it.");
+                return;
+            }
+            harmony.Patch(target,
+                prefix: prefix != null ? new HarmonyMethod(typeof(Patches), prefix) : null,
+                postfix: postfix != null ? new HarmonyMethod(typeof(Patches), postfix) : null);
+        }
+
+        private static void DeployShown(MatchmakerTimeHasCome __instance, RaidSettings raidSettings)
+        {
+            try
+            {
+                if (!AccessGrantedPlugin.ShowThisDeploy())
+                {
+                    return;
+                }
+                StartupTracker.BeginDeploy();
+                TerraOverlay.BeginDeploy(__instance, raidSettings);
+            }
+            catch (Exception e)
+            {
+                // Never let the terminal stand between the player and a raid.
+                AccessGrantedPlugin.Log.LogError("Raid-loading terminal failed to start: " + e);
+                TerraOverlay.HideNow();
+            }
+        }
+
+        private static void DeployStatus(string status, float? progress) => StartupTracker.DeployStatus(status, progress);
+
+        private static void CancelAvailable(bool available) => TerraOverlay.CanCancel = available;
+
+        private static void CountdownShown(DateTime gameStartTime)
+        {
+            float seconds = (float)(gameStartTime - EFT.DateTimeExtensions.Now).TotalSeconds;
+            StartupTracker.ReachCountdown(seconds);
+            TerraOverlay.Countdown(seconds);
+        }
+
+        private static void RaidStarted() => TerraOverlay.RaidStarted();
 
         private static void Handbook() => StartupTracker.Reach(StepId.Handbook);
         private static void WeaponBuilds() => StartupTracker.Reach(StepId.WeaponBuilds);

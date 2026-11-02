@@ -6,7 +6,11 @@ using System.IO;
 
 namespace ACCESSGRANTED
 {
-    /// <summary>The load steps, in the order the game runs them.</summary>
+    /// <summary>
+    /// The load steps, in the order the game runs them: the launch's, then the raid load's. A run
+    /// covers one stretch of them (see <see cref="StartupTracker.FirstStep"/> and
+    /// <see cref="StartupTracker.LastStep"/>).
+    /// </summary>
     public enum StepId
     {
         VerifyFiles,
@@ -23,7 +27,24 @@ namespace ACCESSGRANTED
         WeaponBuilds,
         Voice,
         World,
-        MainMenu
+        MainMenu,
+
+        // The raid load, from the deploy screen to the raid.
+        DeployPrepare,
+        DeployBundles,
+        DeployMap,
+        DeployCache,
+        DeployMatch,
+        DeployObjects,
+        DeployStart,
+        DeployCountdown
+    }
+
+    /// <summary>Which load a run is: the game starting up, or a raid loading.</summary>
+    public enum RunKind
+    {
+        Launch,
+        Deploy
     }
 
     /// <summary>
@@ -54,15 +75,43 @@ namespace ACCESSGRANTED
             "Loading weapon builds",
             "Loading voice",
             "Loading weather and maps",
-            "Opening main menu"
+            "Opening main menu",
+
+            "Preparing the raid",
+            "Loading asset bundles",
+            "Loading the area",
+            "Caching data",
+            "Matching",
+            "Loading objects",
+            "Starting the raid",
+            "Deploying"
         };
 
         /// <summary>
-        /// For a first launch, in seconds: one real SPT 4.1 launch (the four boot steps are
-        /// guesses). Replaced by this machine's own times after one.
+        /// For a first run, in seconds: one real SPT 4.1 launch (the four boot steps are guesses),
+        /// and the medians of 165 raid loads on a 12700K. Replaced by this machine's own times
+        /// after one.
         /// </summary>
-        private static readonly float[] DefaultSeconds = { 0.5f, 6f, 1f, 3f, 0.1f, 9f, 0.4f, 0.7f, 0.6f, 0.5f, 2.7f, 0.2f, 1.6f, 1f, 1.5f };
+        private static readonly float[] DefaultSeconds =
+        {
+            0.5f, 6f, 1f, 3f, 0.1f, 9f, 0.4f, 0.7f, 0.6f, 0.5f, 2.7f, 0.2f, 1.6f, 1f, 1.5f,
+            0.8f, 1.5f, 17f, 11f, 0.1f, 1.1f, 55f, 9f
+        };
 
+        /// <summary>The raid load's statuses, as the game sends them to its deploy screen (keys, not translated text).</summary>
+        private static readonly Dictionary<string, StepId> DeployStatuses = new Dictionary<string, StepId>
+        {
+            { "Preparing the game...", StepId.DeployPrepare },
+            { "LoadingBundles", StepId.DeployBundles },
+            { "CreatingPools", StepId.DeployBundles },
+            { "Map loading...", StepId.DeployMap },
+            { "Caching data...", StepId.DeployCache },
+            { "Matching...", StepId.DeployMatch },
+            { "Loading objects...", StepId.DeployObjects },
+            { "Local game starting...", StepId.DeployStart }
+        };
+
+        /// <summary>Every step there is: the size of the per-step arrays, not of a run.</summary>
         internal static int StepCount => Labels.Length;
 
         private static readonly Stopwatch Clock = Stopwatch.StartNew();
@@ -90,14 +139,29 @@ namespace ACCESSGRANTED
         internal static bool Active { get; private set; }
         internal static int Current { get; private set; } = -1;
 
-        /// <summary>The step this run started at: 0 for a launch, <see cref="StepId.Connect"/> otherwise.</summary>
+        /// <summary>What the running (or last) run is loading.</summary>
+        internal static RunKind Kind { get; private set; }
+
+        /// <summary>The step this run started at: 0 for a launch, <see cref="StepId.Connect"/> for a later profile load, the first deploy step for a raid.</summary>
         internal static int FirstStep { get; private set; }
+
+        /// <summary>The step this run ends on.</summary>
+        internal static int LastStep { get; private set; } = (int)StepId.MainMenu;
+
+        /// <summary>How many steps this run shows.</summary>
+        internal static int RunSteps => LastStep - FirstStep + 1;
 
         /// <summary>Total of the last launch that ran from the splash to the main menu, or 0 if none is known.</summary>
         internal static float LastTotal { get; private set; }
 
+        /// <summary>Total of the last raid load that reached the raid, or 0 if none is known.</summary>
+        internal static float LastDeployTotal { get; private set; }
+
         /// <summary>Launches from the splash so far, this one included.</summary>
         internal static int Launches { get; private set; }
+
+        /// <summary>Raid loads so far, this one included, shown or not.</summary>
+        internal static int Deploys { get; private set; }
 
         /// <summary>The selected profile's nickname, once the game has picked it; null before.</summary>
         internal static string Nickname { get; set; }
@@ -106,7 +170,7 @@ namespace ACCESSGRANTED
         internal static string Side { get; set; }
 
         /// <summary>True once a full launch has replaced the guessed step times with real ones.</summary>
-        internal static bool HasBaseline => LastTotal > 0f || Preview;
+        internal static bool HasBaseline => (Kind == RunKind.Deploy ? LastDeployTotal : LastTotal) > 0f || Preview;
 
         /// <summary>
         /// A pretend run, started from the main menu to show the terminal: the steps advance on
@@ -151,6 +215,7 @@ namespace ACCESSGRANTED
                 EndRun();
             }
 
+            Range(RunKind.Launch, (int)first);
             Clear((int)first);
             if (first == StepId.VerifyFiles)
             {
@@ -160,44 +225,127 @@ namespace ACCESSGRANTED
             Advance((int)first);
         }
 
-        /// <summary>Starts a pretend run from the first step. Does nothing while a real one is going.</summary>
-        internal static bool BeginPreview()
+        /// <summary>Starts a pretend run of <paramref name="kind"/> from its first step. Does nothing while a real one is going.</summary>
+        internal static bool BeginPreview(RunKind kind = RunKind.Launch)
         {
             if (Active && !Preview)
             {
                 return false;
             }
             Active = false;
+            Range(kind, kind == RunKind.Deploy ? (int)StepId.DeployPrepare : 0);
 
             float total = 0f;
-            for (int i = 0; i < StepCount; i++)
+            for (int i = FirstStep; i <= LastStep; i++)
             {
                 total += Math.Max(Expected[i], 0.05f);
             }
             for (int i = 0; i < StepCount; i++)
             {
-                PreviewPlan[i] = Math.Max(0.25f, Math.Max(Expected[i], 0.05f) * PreviewLength / total);
+                bool inRun = i >= FirstStep && i <= LastStep;
+                PreviewPlan[i] = inRun ? Math.Max(0.25f, Math.Max(Expected[i], 0.05f) * PreviewLength / total) : 0f;
                 PreviewExpected[i] = PreviewPlan[i];
             }
+            if (kind == RunKind.Deploy)
+            {
+                // The countdown counts down whole seconds, whatever the squeeze.
+                PreviewPlan[(int)StepId.DeployCountdown] = PreviewExpected[(int)StepId.DeployCountdown] = 4f;
+            }
             // One step overruns, so the slow-step warning shows too.
-            int slow = (int)PreviewSlowStep;
-            PreviewExpected[slow] = Math.Max(Expected[slow], 0.25f);
+            int slow = (int)(kind == RunKind.Deploy ? StepId.DeployCache : PreviewSlowStep);
+            PreviewExpected[slow] = Math.Max(Expected[slow] * PreviewLength / total, 0.25f);
             PreviewPlan[slow] = PreviewExpected[slow] + Math.Max(1.5f, PreviewExpected[slow] * 0.5f) + 1.2f;
 
             Preview = true;
-            Clear(0);
-            Advance(0);
+            Clear(FirstStep);
+            Advance(FirstStep);
             return true;
+        }
+
+        private static void Range(RunKind kind, int first)
+        {
+            Kind = kind;
+            FirstStep = first;
+            LastStep = kind == RunKind.Deploy ? (int)StepId.DeployCountdown : (int)StepId.MainMenu;
+        }
+
+        /// <summary>A raid is loading: the deploy screen came up.</summary>
+        internal static void BeginDeploy()
+        {
+            if (Active)
+            {
+                if (!Preview && Kind == RunKind.Deploy)
+                {
+                    return;
+                }
+                // A raid load beats a preview, and closes any launch run left open.
+                EndRun();
+            }
+            Range(RunKind.Deploy, (int)StepId.DeployPrepare);
+            Clear(FirstStep);
+            Advance(FirstStep);
+        }
+
+        /// <summary>Counts a raid load, whether or not the terminal shows it (taking turns goes by this).</summary>
+        internal static void CountDeploy()
+        {
+            Deploys++;
+            SaveTimings();
+        }
+
+        /// <summary>
+        /// The deploy screen's status changed. Statuses it does not know are kept as the running
+        /// step's detail, so anything the game (or a mod) adds still shows.
+        /// </summary>
+        internal static void DeployStatus(string status, float? progress)
+        {
+            if (!Active || Preview || Kind != RunKind.Deploy || string.IsNullOrEmpty(status))
+            {
+                return;
+            }
+            if (DeployStatuses.TryGetValue(status, out StepId id))
+            {
+                Advance((int)id);
+                if (progress.HasValue && (int)id == Current)
+                {
+                    Details[Current] = $"{Math.Round(progress.Value * 100f):0}%";
+                }
+            }
+            else
+            {
+                AccessGrantedPlugin.Log.LogInfo($"Raid load: status '{status}' is not one of the known steps; shown as a detail.");
+                Details[Math.Max(Current, FirstStep)] = status;
+            }
+        }
+
+        /// <summary>The final countdown screen came up: the last step runs exactly as long as it shows.</summary>
+        internal static void ReachCountdown(float seconds)
+        {
+            if (!Active || Preview || Kind != RunKind.Deploy)
+            {
+                return;
+            }
+            Advance((int)StepId.DeployCountdown);
+            Expected[(int)StepId.DeployCountdown] = Math.Max(0.5f, seconds);
         }
 
         /// <summary>Moves the preview along. True once its last step has run its time.</summary>
         internal static bool PreviewTick()
         {
-            if (!Preview || !Active || Current < 0 || StepElapsed < PreviewPlan[Current])
+            if (!Preview || !Active || Current < 0)
             {
                 return false;
             }
-            if (Current == StepCount - 1)
+            if (Current == (int)StepId.DeployMap)
+            {
+                // The game reports how far the map has loaded; so does the pretend one.
+                Details[Current] = $"{Math.Min(99f, StepElapsed / Math.Max(PreviewPlan[Current], 0.05f) * 100f):0}%";
+            }
+            if (StepElapsed < PreviewPlan[Current])
+            {
+                return false;
+            }
+            if (Current == LastStep)
             {
                 return true;
             }
@@ -219,8 +367,7 @@ namespace ACCESSGRANTED
             Array.Clear(Took, 0, Took.Length);
             Array.Clear(Skipped, 0, Skipped.Length);
             Array.Clear(Details, 0, Details.Length);
-            FirstStep = first;
-            Current = FirstStep - 1;
+            Current = first - 1;
             _shownFraction = 0f;
             _runStart = Now;
             _runTerminal = 0f;
@@ -230,8 +377,9 @@ namespace ACCESSGRANTED
 
         internal static void Reach(StepId id)
         {
-            // A preview runs on its own schedule; the game calls some of these again in the menu.
-            if (!Preview)
+            // A preview runs on its own schedule; the game calls some of these again in the menu,
+            // and during a raid load, where they are not this run's steps.
+            if (!Preview && Kind == RunKind.Launch && (int)id <= LastStep)
             {
                 Advance((int)id);
             }
@@ -239,7 +387,7 @@ namespace ACCESSGRANTED
 
         private static void Advance(int step)
         {
-            if (!Active || step <= Current)
+            if (!Active || step <= Current || step > LastStep)
             {
                 return;
             }
@@ -267,6 +415,22 @@ namespace ACCESSGRANTED
             {
                 Details[(int)id] = detail;
             }
+        }
+
+        /// <summary>Ends a run that did not finish (a cancelled raid load): logged, but nothing is kept as a yardstick.</summary>
+        internal static void AbortRun(string why)
+        {
+            if (!Active)
+            {
+                return;
+            }
+            if (!Preview)
+            {
+                AccessGrantedPlugin.Log.LogInfo($"Loading stopped after {Elapsed:0.00}s at '{Labels[Math.Max(Current, FirstStep)]}': {why}.");
+                Archive.Save();
+            }
+            Active = false;
+            Preview = false;
         }
 
         internal static void EndRun()
@@ -298,17 +462,21 @@ namespace ACCESSGRANTED
             AccessGrantedPlugin.Log.LogInfo(
                 $"Terminal: {_runTerminal * 1000f:0} ms of its own work over {_runFrames} frames ({(_runFrames > 0 ? _runTerminal * 1000f / _runFrames : 0f):0.00} ms/frame).");
 
-            // Only a run that reached the menu is a fair yardstick for the next one.
-            if (Current == StepCount - 1)
+            // Only a run that reached its end is a fair yardstick for the next one.
+            if (Current == LastStep)
             {
-                for (int i = FirstStep; i < StepCount; i++)
+                for (int i = FirstStep; i <= LastStep; i++)
                 {
                     if (!Skipped[i])
                     {
                         Expected[i] = Took[i];
                     }
                 }
-                if (FirstStep == 0)
+                if (Kind == RunKind.Deploy)
+                {
+                    LastDeployTotal = total;
+                }
+                else if (FirstStep == 0)
                 {
                     LastTotal = total;
                 }
@@ -329,7 +497,7 @@ namespace ACCESSGRANTED
 
             float total = 0f;
             float done = 0f;
-            for (int i = FirstStep; i < StepCount; i++)
+            for (int i = FirstStep; i <= LastStep; i++)
             {
                 float expected = Math.Max(Usual(i), 0.05f);
                 total += expected;
@@ -417,9 +585,17 @@ namespace ACCESSGRANTED
                     {
                         LastTotal = seconds;
                     }
+                    else if (parts[0] == "DeployTotal")
+                    {
+                        LastDeployTotal = seconds;
+                    }
                     else if (parts[0] == "Launches")
                     {
                         Launches = (int)seconds;
+                    }
+                    else if (parts[0] == "Deploys")
+                    {
+                        Deploys = (int)seconds;
                     }
                     else if (Enum.TryParse(parts[0], out StepId id))
                     {
@@ -440,7 +616,9 @@ namespace ACCESSGRANTED
                 var lines = new List<string>
                 {
                     "LaunchTotal=" + LastTotal.ToString("0.000", CultureInfo.InvariantCulture),
-                    "Launches=" + Launches.ToString(CultureInfo.InvariantCulture)
+                    "DeployTotal=" + LastDeployTotal.ToString("0.000", CultureInfo.InvariantCulture),
+                    "Launches=" + Launches.ToString(CultureInfo.InvariantCulture),
+                    "Deploys=" + Deploys.ToString(CultureInfo.InvariantCulture)
                 };
                 for (int i = 0; i < StepCount; i++)
                 {

@@ -8,7 +8,8 @@ namespace ACCESSGRANTED
     /// The preview: from the main menu, the terminal plays over a pretend load (see
     /// <see cref="StartupTracker.BeginPreview"/>) so every department and layout can be seen
     /// without relaunching. Keys while it shows: Left/Right department, Up/Down layout, Space
-    /// re-rolls the other parts, R replays, Esc closes. A caption names what is on screen.
+    /// re-rolls the other parts, T switches between a launch and a raid load, R replays, Esc
+    /// closes. A caption names what is on screen.
     /// </summary>
     internal partial class TerraOverlay
     {
@@ -19,6 +20,9 @@ namespace ACCESSGRANTED
 
         private bool _previewing;
         private Variant _previewVariant;
+
+        /// <summary>Which load the preview pretends to be; T switches it.</summary>
+        private RunKind _previewKind;
         private TextMeshProUGUI _caption;
         private TextMeshProUGUI _captionHelp;
 
@@ -75,6 +79,12 @@ namespace ACCESSGRANTED
             {
                 o.PlayPreview(o.RollPreview(v.Theme.Id, v.Layout));
             }
+            else if (Input.GetKeyDown(KeyCode.T))
+            {
+                // A fresh roll: a raid load trims the notices and the denial off the one it gets.
+                o._previewKind = o._previewKind == RunKind.Launch ? RunKind.Deploy : RunKind.Launch;
+                o.PlayPreview(o.RollPreview(v.Theme.Id, v.Layout));
+            }
             else if (Input.GetKeyDown(KeyCode.R))
             {
                 o.PlayPreview(v);
@@ -100,9 +110,9 @@ namespace ACCESSGRANTED
             if (_phase != Phase.Hidden)
             {
                 StartupTracker.EndRun();
-                Hide();
+                Hide(release: false);
             }
-            if (!StartupTracker.BeginPreview())
+            if (!StartupTracker.BeginPreview(_previewKind))
             {
                 return;
             }
@@ -110,7 +120,7 @@ namespace ACCESSGRANTED
             _previewing = true;
             StartLoading(null);
 
-            _caption.text = $"PREVIEW  //  {variant.Theme.Division}  /  {Name(variant.Layout.ToString())} LAYOUT  /  "
+            _caption.text = $"PREVIEW  //  {(_previewKind == RunKind.Deploy ? "RAID LOAD" : "LAUNCH")}  //  {variant.Theme.Division}  /  {Name(variant.Layout.ToString())} LAYOUT  /  "
                 + $"{Name(variant.Backdrop.ToString())}  /  {Name(variant.Frame.ToString())} FRAME  /  "
                 + $"{Name(variant.Intro.ToString())} INTRO  /  {Name(variant.Bar.ToString())} BAR  /  {Name(variant.Outro.ToString())} ENDING";
             _caption.color = Accent;
@@ -138,7 +148,7 @@ namespace ACCESSGRANTED
         {
             _caption = MakeText("PreviewCaption", transform, TextAlignmentOptions.Center, Accent);
             _captionHelp = MakeText("PreviewHelp", transform, TextAlignmentOptions.Center, Dim);
-            _captionHelp.text = "LEFT / RIGHT  DEPARTMENT      UP / DOWN  LAYOUT      SPACE  RE-ROLL      R  REPLAY      ESC  CLOSE";
+            _captionHelp.text = "LEFT / RIGHT  DEPARTMENT      UP / DOWN  LAYOUT      SPACE  RE-ROLL      T  LAUNCH / RAID      R  REPLAY      ESC  CLOSE";
             _caption.gameObject.SetActive(false);
             _captionHelp.gameObject.SetActive(false);
         }
