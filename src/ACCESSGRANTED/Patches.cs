@@ -60,6 +60,19 @@ namespace ACCESSGRANTED
             MenuBackgroundFix.Apply(harmony);
             ApplyDeploy(harmony);
 
+            // After the after-action report (or a raid that ended without one) the game unloads
+            // the raid and loads the menu again; the launch's own steps from the item database on
+            // mark the rest of the way.
+            MethodInfo comeback = AccessTools.Method(typeof(TarkovApplication), nameof(TarkovApplication.ComebackToMainMenu));
+            if (comeback != null)
+            {
+                harmony.Patch(comeback, prefix: new HarmonyMethod(typeof(Patches), nameof(ComingBack)));
+            }
+            else
+            {
+                AccessGrantedPlugin.Log.LogWarning("TarkovApplication.ComebackToMainMenu not found; the terminal will not show after raids.");
+            }
+
             MethodInfo show = AccessTools.Method(typeof(ProfileLoadingScreen), nameof(ProfileLoadingScreen.Show), new[] { typeof(bool) });
             if (show == null)
             {
@@ -214,6 +227,23 @@ namespace ACCESSGRANTED
             {
                 // Never let the terminal stand between the player and a raid.
                 AccessGrantedPlugin.Log.LogError("Raid-loading terminal failed to start: " + e);
+                TerraOverlay.HideNow();
+            }
+        }
+
+        private static void ComingBack()
+        {
+            try
+            {
+                if (AccessGrantedPlugin.ShowThisReturn() && StartupTracker.BeginReturn())
+                {
+                    TerraOverlay.BeginReturn();
+                }
+            }
+            catch (Exception e)
+            {
+                // Never let the terminal stand between the player and the menu.
+                AccessGrantedPlugin.Log.LogError("After-raid terminal failed to start: " + e);
                 TerraOverlay.HideNow();
             }
         }

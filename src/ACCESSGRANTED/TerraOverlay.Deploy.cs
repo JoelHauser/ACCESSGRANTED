@@ -176,7 +176,9 @@ namespace ACCESSGRANTED
 
         /// <summary>The subtitle under the wordmark: the division and what stage the game is at.</summary>
         private string Subtitle(bool boot) =>
-            _variant.Theme.Division + (Deploying ? "  //  DEPLOYING" : boot ? "  //  STARTING UP" : "  //  SIGNING IN");
+            _variant.Theme.Division + (Deploying ? "  //  DEPLOYING"
+                : StartupTracker.Kind == RunKind.Return && StartupTracker.Active ? "  //  DEBRIEFING COMPLETE"
+                : boot ? "  //  STARTING UP" : "  //  SIGNING IN");
 
         /// <summary>The running step's time: elapsed, or on the countdown the time left.</summary>
         private static string StepTimeText(int current, int tenths)

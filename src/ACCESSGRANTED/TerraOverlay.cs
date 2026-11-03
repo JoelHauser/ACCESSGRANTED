@@ -62,6 +62,17 @@ namespace ACCESSGRANTED
         /// <summary>If the game hides its screen and the menu never comes, give up after this long.</summary>
         private const float GiveUpAfter = 15f;
 
+        /// <summary>
+        /// A raid load and the way back cover the game's screen from the first frame. Fading in,
+        /// the game's own screen showed through, and the long frames as those loads start (the
+        /// intro runs on drawn frames) stretched the fade to a second or more. A launch fades in
+        /// over the splash, which is already dark.
+        /// </summary>
+        private static bool CoversAtOnce => StartupTracker.Kind != RunKind.Launch;
+
+        /// <summary>The way back from a raid has no screen to lose: if the menu never comes, give up after this long.</summary>
+        private const float ReturnGiveUpAfter = 120f;
+
         /// <summary>Over this far past its usual time, a step's readout turns to the warning colour.</summary>
         private const float SlowAfter = 1.5f;
 
@@ -225,6 +236,28 @@ namespace ACCESSGRANTED
             else
             {
                 _instance.StartLoading(screen);
+            }
+        }
+
+        /// <summary>
+        /// Called when the game leaves the after-action report for the main menu: the terminal
+        /// covers the raid unloading and the menu loading, and grants access when the menu shows.
+        /// </summary>
+        internal static void BeginReturn()
+        {
+            if (_instance == null)
+            {
+                FindBootFont(null, out TMP_FontAsset font, out Material material);
+                Create(font, material);
+            }
+            if (_instance._previewing)
+            {
+                _instance.Hide(release: false);
+            }
+            if (_instance._phase == Phase.Hidden)
+            {
+                _instance.StartLoading(null);
+                AccessGrantedPlugin.Log.LogInfo("Back from the raid: the terminal is showing the way to the main menu.");
             }
         }
 
@@ -547,7 +580,7 @@ namespace ACCESSGRANTED
             _slow = false;
             _emblem.localScale = Vector3.one;
             _laidOutSize = Vector2.zero;
-            _group.alpha = 0f;
+            _group.alpha = CoversAtOnce ? 1f : 0f;
             ResetFx();
             Roll();
             ApplyVariant();
@@ -746,7 +779,7 @@ namespace ACCESSGRANTED
 
             if (_phase == Phase.Loading)
             {
-                _group.alpha = Mathf.Clamp01(_introClock * (_variant.Intro == IntroKind.Fade ? 3f : 8f));
+                _group.alpha = CoversAtOnce ? 1f : Mathf.Clamp01(_introClock * (_variant.Intro == IntroKind.Fade ? 3f : 8f));
                 UpdateProgress(StartupTracker.Fraction());
                 UpdateSteps(t);
                 UpdateChatter(t);
@@ -875,6 +908,11 @@ namespace ACCESSGRANTED
             {
                 Grant(realTime);
             }
+            else if (StartupTracker.Kind == RunKind.Return && StartupTracker.Elapsed > ReturnGiveUpAfter)
+            {
+                AccessGrantedPlugin.Log.LogWarning("Back from the raid: the main menu never showed; stepping aside.");
+                Grant(realTime);
+            }
         }
 
         /// <summary>Everything that depends only on the screen size. Units are 1080p pixels scaled to the screen.</summary>
@@ -965,8 +1003,9 @@ namespace ACCESSGRANTED
             SetText(_topRight, halfW - cornerWidth * 0.5f, halfH - 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomLeft, -halfW + cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomRight, halfW - cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
-            float last = Deploying ? StartupTracker.LastDeployTotal : StartupTracker.LastTotal;
-            string lastName = Deploying ? "LAST DEPLOY" : "LAST SYNC";
+            bool returning = StartupTracker.Kind == RunKind.Return;
+            float last = Deploying ? StartupTracker.LastDeployTotal : returning ? StartupTracker.LastReturnTotal : StartupTracker.LastTotal;
+            string lastName = Deploying ? "LAST DEPLOY" : returning ? "LAST RETURN" : "LAST SYNC";
             string lastSync = last > 0f
                 ? $"{lastName} <mspace=0.62em>{last:0.0}</mspace>s"
                 : lastName + "  --";
@@ -1141,7 +1180,7 @@ namespace ACCESSGRANTED
                     _bootSubtitle = boot;
                     _subtitle.text = Subtitle(boot);
                 }
-                _currentLabel.text = "> " + StartupTracker.Labels[current].ToUpperInvariant();
+                _currentLabel.text = "> " + StartupTracker.Label(current).ToUpperInvariant();
                 _currentLabel.color = Text;
                 _currentLabel.maxVisibleCharacters = 0;
                 RebuildLog(current);
@@ -1258,7 +1297,7 @@ namespace ACCESSGRANTED
                 lines++;
                 string open = $"<alpha=#{alpha:X2}>";
                 _builder.Append(open).Append("<color=").Append(_variant.Theme.AccentHex).Append('>')
-                    .Append(_variant.Theme.LogTag).Append("</color>   ").Append(StartupTracker.Labels[i].ToUpperInvariant());
+                    .Append(_variant.Theme.LogTag).Append("</color>   ").Append(StartupTracker.Label(i).ToUpperInvariant());
                 string detail = StartupTracker.Detail(i);
                 if (!string.IsNullOrEmpty(detail))
                 {

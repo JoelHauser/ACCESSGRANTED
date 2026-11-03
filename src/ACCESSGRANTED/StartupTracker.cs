@@ -40,11 +40,12 @@ namespace ACCESSGRANTED
         DeployCountdown
     }
 
-    /// <summary>Which load a run is: the game starting up, or a raid loading.</summary>
+    /// <summary>Which load a run is: the game starting up, a raid loading, or the game going back to the menu after a raid.</summary>
     public enum RunKind
     {
         Launch,
-        Deploy
+        Deploy,
+        Return
     }
 
     /// <summary>
@@ -98,6 +99,21 @@ namespace ACCESSGRANTED
             0.8f, 1.5f, 17f, 11f, 0.1f, 1.1f, 55f, 9f
         };
 
+        /// <summary>
+        /// What the way back from a raid calls its first step, which stands in the place of
+        /// <see cref="StepId.Connect"/>: the raid unloading, the clean-up after it, and the menu
+        /// scene loading. The rest of the way back is the launch's own steps from the item
+        /// database on.
+        /// </summary>
+        private const string LeaveRaidLabel = "Leaving the raid";
+
+        /// <summary>For a first way back, in seconds, before this machine's own are known: guesses.</summary>
+        private static readonly float[] DefaultReturnSeconds =
+        {
+            0f, 0f, 0f, 0f, 6f, 1f, 0.4f, 0.7f, 0.6f, 0.5f, 2.7f, 0.2f, 1.6f, 1f, 1.5f,
+            0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f
+        };
+
         /// <summary>The raid load's statuses, as the game sends them to its deploy screen (keys, not translated text).</summary>
         private static readonly Dictionary<string, StepId> DeployStatuses = new Dictionary<string, StepId>
         {
@@ -116,6 +132,9 @@ namespace ACCESSGRANTED
 
         private static readonly Stopwatch Clock = Stopwatch.StartNew();
         private static readonly float[] Expected = (float[])DefaultSeconds.Clone();
+
+        /// <summary>The way back's own step times: the steps it shares with a launch run differently after a raid.</summary>
+        private static readonly float[] ReturnExpected = (float[])DefaultReturnSeconds.Clone();
         private static readonly float[] Took = new float[Labels.Length];
         private static readonly bool[] Skipped = new bool[Labels.Length];
         private static readonly string[] Details = new string[Labels.Length];
@@ -160,6 +179,9 @@ namespace ACCESSGRANTED
         /// <summary>Launches from the splash so far, this one included.</summary>
         internal static int Launches { get; private set; }
 
+        /// <summary>Total of the last way back from a raid that reached the main menu, or 0 if none is known.</summary>
+        internal static float LastReturnTotal { get; private set; }
+
         /// <summary>Raid loads so far, this one included, shown or not.</summary>
         internal static int Deploys { get; private set; }
 
@@ -170,7 +192,8 @@ namespace ACCESSGRANTED
         internal static string Side { get; set; }
 
         /// <summary>True once a full launch has replaced the guessed step times with real ones.</summary>
-        internal static bool HasBaseline => (Kind == RunKind.Deploy ? LastDeployTotal : LastTotal) > 0f || Preview;
+        internal static bool HasBaseline =>
+            (Kind == RunKind.Deploy ? LastDeployTotal : Kind == RunKind.Return ? LastReturnTotal : LastTotal) > 0f || Preview;
 
         /// <summary>
         /// A pretend run, started from the main menu to show the terminal: the steps advance on
@@ -187,7 +210,17 @@ namespace ACCESSGRANTED
         private const float PreviewLength = 10f;
         private const StepId PreviewSlowStep = StepId.WeaponBuilds;
 
-        private static float Usual(int step) => Preview ? PreviewExpected[step] : Expected[step];
+        private static float Usual(int step) => Preview ? PreviewExpected[step] : Times[step];
+
+        /// <summary>The step times this run is weighed against.</summary>
+        private static float[] Times => Kind == RunKind.Return ? ReturnExpected : Expected;
+
+        /// <summary>A step's name in this run: the way back's first step has its own.</summary>
+        internal static string Label(int step) =>
+            Kind == RunKind.Return && step == (int)StepId.Connect ? LeaveRaidLabel : Labels[step];
+
+        /// <summary>Marks the way back's step times in the timings file.</summary>
+        private const string ReturnPrefix = "Return.";
 
         private static string TimingsPath =>
             // Qualified: Assembly-CSharp has a global Paths class of its own.
@@ -267,6 +300,26 @@ namespace ACCESSGRANTED
             Kind = kind;
             FirstStep = first;
             LastStep = kind == RunKind.Deploy ? (int)StepId.DeployCountdown : (int)StepId.MainMenu;
+        }
+
+        /// <summary>
+        /// The after-action report is done and the game is going back to the main menu. False,
+        /// and nothing started, while another real run is going (a raid load that is stopping).
+        /// </summary>
+        internal static bool BeginReturn()
+        {
+            if (Active)
+            {
+                if (!Preview)
+                {
+                    return false;
+                }
+                EndRun();
+            }
+            Range(RunKind.Return, (int)StepId.Connect);
+            Clear(FirstStep);
+            Advance(FirstStep);
+            return true;
         }
 
         /// <summary>A raid is loading: the deploy screen came up.</summary>
@@ -379,7 +432,7 @@ namespace ACCESSGRANTED
         {
             // A preview runs on its own schedule; the game calls some of these again in the menu,
             // and during a raid load, where they are not this run's steps.
-            if (!Preview && Kind == RunKind.Launch && (int)id <= LastStep)
+            if (!Preview && Kind != RunKind.Deploy && (int)id <= LastStep)
             {
                 Advance((int)id);
             }
@@ -426,7 +479,7 @@ namespace ACCESSGRANTED
             }
             if (!Preview)
             {
-                AccessGrantedPlugin.Log.LogInfo($"Loading stopped after {Elapsed:0.00}s at '{Labels[Math.Max(Current, FirstStep)]}': {why}.");
+                AccessGrantedPlugin.Log.LogInfo($"Loading stopped after {Elapsed:0.00}s at '{Label(Math.Max(Current, FirstStep))}': {why}.");
                 Archive.Save();
             }
             Active = false;
@@ -458,7 +511,7 @@ namespace ACCESSGRANTED
             Active = false;
 
             float total = now - _runStart;
-            AccessGrantedPlugin.Log.LogInfo($"Loading took {total:0.00}s from '{Labels[FirstStep]}', reached '{Labels[Math.Max(Current, 0)]}'.");
+            AccessGrantedPlugin.Log.LogInfo($"Loading took {total:0.00}s from '{Label(FirstStep)}', reached '{Label(Math.Max(Current, 0))}'.");
             AccessGrantedPlugin.Log.LogInfo(
                 $"Terminal: {_runTerminal * 1000f:0} ms of its own work over {_runFrames} frames ({(_runFrames > 0 ? _runTerminal * 1000f / _runFrames : 0f):0.00} ms/frame).");
 
@@ -469,12 +522,16 @@ namespace ACCESSGRANTED
                 {
                     if (!Skipped[i])
                     {
-                        Expected[i] = Took[i];
+                        Times[i] = Took[i];
                     }
                 }
                 if (Kind == RunKind.Deploy)
                 {
                     LastDeployTotal = total;
+                }
+                else if (Kind == RunKind.Return)
+                {
+                    LastReturnTotal = total;
                 }
                 else if (FirstStep == 0)
                 {
@@ -560,7 +617,7 @@ namespace ACCESSGRANTED
                 return;
             }
             AccessGrantedPlugin.Log.LogInfo(
-                $"{Labels[Current]}: {Took[Current]:0.00}s ({_stepFrames} frames, {_stepLongFrames} over {LongFrame * 1000f:0} ms, worst {_stepWorstFrame * 1000f:0} ms, "
+                $"{Label(Current)}: {Took[Current]:0.00}s ({_stepFrames} frames, {_stepLongFrames} over {LongFrame * 1000f:0} ms, worst {_stepWorstFrame * 1000f:0} ms, "
                 + $"terminal {(_stepFrames > 0 ? _stepTerminal * 1000f / _stepFrames : 0f):0.00} ms/frame)");
         }
 
@@ -588,6 +645,15 @@ namespace ACCESSGRANTED
                     else if (parts[0] == "DeployTotal")
                     {
                         LastDeployTotal = seconds;
+                    }
+                    else if (parts[0] == "ReturnTotal")
+                    {
+                        LastReturnTotal = seconds;
+                    }
+                    else if (parts[0].StartsWith(ReturnPrefix, StringComparison.Ordinal)
+                             && Enum.TryParse(parts[0].Substring(ReturnPrefix.Length), out StepId returnId))
+                    {
+                        ReturnExpected[(int)returnId] = seconds;
                     }
                     else if (parts[0] == "Launches")
                     {
@@ -617,12 +683,17 @@ namespace ACCESSGRANTED
                 {
                     "LaunchTotal=" + LastTotal.ToString("0.000", CultureInfo.InvariantCulture),
                     "DeployTotal=" + LastDeployTotal.ToString("0.000", CultureInfo.InvariantCulture),
+                    "ReturnTotal=" + LastReturnTotal.ToString("0.000", CultureInfo.InvariantCulture),
                     "Launches=" + Launches.ToString(CultureInfo.InvariantCulture),
                     "Deploys=" + Deploys.ToString(CultureInfo.InvariantCulture)
                 };
                 for (int i = 0; i < StepCount; i++)
                 {
                     lines.Add((StepId)i + "=" + Expected[i].ToString("0.000", CultureInfo.InvariantCulture));
+                }
+                for (int i = (int)StepId.Connect; i <= (int)StepId.MainMenu; i++)
+                {
+                    lines.Add(ReturnPrefix + (StepId)i + "=" + ReturnExpected[i].ToString("0.000", CultureInfo.InvariantCulture));
                 }
                 File.WriteAllLines(TimingsPath, lines);
             }

@@ -29,6 +29,15 @@ In the F12 menu (BepInEx Configuration Manager), under **ACCESS GRANTED**:
 | Enabled | Turns the terminal on or off. |
 | Theme | A fixed department, or Random. |
 | Glitches | Off, Subtle or Heavy. |
+| Show While Loading Raids | Also shows the terminal while a raid loads, in the department you signed in to (off by default). |
+| With Deploy Screen Overhaul | If that mod is installed too: Stand Aside, Take Turns or Always Terminal. |
+| Show Map Name | Names the map on the raid-loading terminal instead of a site code. |
+| Show After Raids | Shows the terminal while the game goes back to the main menu after the after-action report (on by default). |
+
+With **Advanced settings** ticked:
+
+| Setting | What it does |
+|---|---|
 | Layout, Background, Logo Frame, Intro, Progress Bar, Ending | Pin any part instead of letting the department choose. |
 | Preview Key | Plays the terminal in the main menu (default Ctrl+F9). |
 
