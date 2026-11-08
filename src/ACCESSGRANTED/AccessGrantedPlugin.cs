@@ -27,7 +27,7 @@ namespace ACCESSGRANTED
         public const string PluginName = "ACCESS GRANTED";
 
         /// <summary>Must match the csproj's Version. Two places, and they have to agree.</summary>
-        public const string PluginVersion = "1.0.2";
+        public const string PluginVersion = "1.1.0";
 
         internal static ManualLogSource Log;
 
@@ -42,6 +42,7 @@ namespace ACCESSGRANTED
         internal static ConfigEntry<OutroKind> Ending;
         internal static ConfigEntry<KeyboardShortcut> PreviewKey;
         internal static ConfigEntry<bool> RaidLoading;
+        internal static ConfigEntry<bool> CountdownAlert;
         internal static ConfigEntry<DeployScreenMode> WithDeployScreen;
         internal static ConfigEntry<bool> ShowMapName;
         internal static ConfigEntry<bool> AfterRaids;
@@ -177,6 +178,9 @@ namespace ACCESSGRANTED
             RaidLoading = Config.Bind("Raid Loading", "Show While Loading Raids", false,
                 "Also show the terminal while a raid loads, from the deploy screen to the raid: the same department you signed in to, "
                 + "the game's real load steps, the countdown, then into the raid. One notice at most. Esc cancels the raid while the game allows it.");
+            CountdownAlert = Config.Bind("Raid Loading", "Countdown Alert", false,
+                "With Show While Loading Raids on: over the final countdown, the step pulses in the warning colour over a line that runs out with the time, "
+                + "and a frame round the screen flashes brighter as the raid is about to start, so you don't miss it.");
             WithDeployScreen = Config.Bind("Raid Loading", "With Deploy Screen Overhaul", DeployScreenMode.StandAside,
                 "Only matters when Deploy Screen Overhaul is installed too, since both draw the raid loading screen. "
                 + "Stand Aside leaves raid loads to it; Take Turns alternates raids; Always Terminal shows this terminal every raid.");
