@@ -96,6 +96,23 @@ namespace ACCESSGRANTED
             }
         }
 
+        /// <summary>
+        /// A raid is loading or live and this terminal is not the raid load's: anything else
+        /// still showing (the way back from a raid, before a transit) goes at once, so the deploy
+        /// screen and the raid are never hidden. Its times are not kept: the menu was never reached.
+        /// </summary>
+        internal static void StepAsideForRaid(string why)
+        {
+            TerraOverlay o = _instance;
+            if (o == null || o._phase == Phase.Hidden || o._previewing || o.Deploying)
+            {
+                return;
+            }
+            AccessGrantedPlugin.Log.LogInfo($"Terminal stepping aside: {why}.");
+            StartupTracker.AbortRun(why);
+            o.Hide();
+        }
+
         /// <summary>Esc cancels the raid while the game allows it. Called every frame by the plugin.</summary>
         internal static void DeployInput()
         {

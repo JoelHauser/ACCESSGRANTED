@@ -218,6 +218,9 @@ namespace ACCESSGRANTED
             {
                 if (!AccessGrantedPlugin.ShowThisDeploy())
                 {
+                    // A transit goes from the raid's unloading straight to the next raid's load,
+                    // never reaching the main menu the after-raid terminal waits for.
+                    TerraOverlay.StepAsideForRaid("the game went straight on to load a raid (a transit)");
                     return;
                 }
                 StartupTracker.BeginDeploy();
@@ -259,7 +262,12 @@ namespace ACCESSGRANTED
             TerraOverlay.Countdown(seconds);
         }
 
-        private static void RaidStarted() => TerraOverlay.RaidStarted();
+        private static void RaidStarted()
+        {
+            TerraOverlay.RaidStarted();
+            // Whatever else is still up, the raid is live: it must never play behind the terminal.
+            TerraOverlay.StepAsideForRaid("the raid started");
+        }
 
         private static void Handbook() => StartupTracker.Reach(StepId.Handbook);
         private static void WeaponBuilds() => StartupTracker.Reach(StepId.WeaponBuilds);

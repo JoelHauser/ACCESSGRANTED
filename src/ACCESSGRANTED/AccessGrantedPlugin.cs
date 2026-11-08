@@ -27,7 +27,7 @@ namespace ACCESSGRANTED
         public const string PluginName = "ACCESS GRANTED";
 
         /// <summary>Must match the csproj's Version. Two places, and they have to agree.</summary>
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.0.2";
 
         internal static ManualLogSource Log;
 
