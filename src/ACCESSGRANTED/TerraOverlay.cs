@@ -627,6 +627,7 @@ namespace ACCESSGRANTED
             }
             _screen = null;
             _status = null;
+            DeployScene.Uncover(_raidStarted);
             _deployScreen = null;
             CanCancel = false;
             if (release)

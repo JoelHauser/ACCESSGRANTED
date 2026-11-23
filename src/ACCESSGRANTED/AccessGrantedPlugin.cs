@@ -27,7 +27,7 @@ namespace ACCESSGRANTED
         public const string PluginName = "ACCESS GRANTED";
 
         /// <summary>Must match the csproj's Version. Two places, and they have to agree.</summary>
-        public const string PluginVersion = "1.1.0";
+        public const string PluginVersion = "1.2.0";
 
         internal static ManualLogSource Log;
 
@@ -45,6 +45,7 @@ namespace ACCESSGRANTED
         internal static ConfigEntry<bool> CountdownAlert;
         internal static ConfigEntry<DeployScreenMode> WithDeployScreen;
         internal static ConfigEntry<bool> ShowMapName;
+        internal static ConfigEntry<LoadFrameRate> LoadFps;
         internal static ConfigEntry<bool> AfterRaids;
 
         private const string DeployScreenGuid = "com.mybutthasarash.deployscreen";
@@ -186,6 +187,9 @@ namespace ACCESSGRANTED
                 + "Stand Aside leaves raid loads to it; Take Turns alternates raids; Always Terminal shows this terminal every raid.");
             ShowMapName = Config.Bind("Raid Loading", "Show Map Name", false,
                 "Name the map on the raid-loading terminal. Off gives it a site code instead.");
+            LoadFps = Config.Bind("Raid Loading", "Frame Rate While Loading Raids", LoadFrameRate.Unlocked,
+                "With Show While Loading Raids on: Unlocked leaves the frame rate to the game. A limit lets the game load more of the raid in each frame, "
+                + "so the raid loads sooner, while the terminal draws at about that frame rate. Only while the raid loads: the raid itself is never affected.");
             AfterRaids = Config.Bind("Raid Loading", "Show After Raids", true,
                 "Show the terminal while the game goes back to the main menu after a raid, once the after-action report is done: "
                 + "the same department you signed in to, from the raid unloading to the menu.");

@@ -194,6 +194,7 @@ namespace ACCESSGRANTED
                 return;
             }
             harmony.Patch(show, prefix: new HarmonyMethod(typeof(Patches), nameof(DeployShown)));
+            DeployScene.Apply(harmony);
             DeployHook(harmony, AccessTools.Method(typeof(MatchmakerTimeHasCome), nameof(MatchmakerTimeHasCome.ChangeStatus)), prefix: nameof(DeployStatus));
             DeployHook(harmony, AccessTools.Method(typeof(MatchmakerTimeHasCome), nameof(MatchmakerTimeHasCome.ChangeCancelButtonVisibility)), postfix: nameof(CancelAvailable));
             DeployHook(harmony, AccessTools.Method(typeof(MatchmakerFinalCountdown), nameof(MatchmakerFinalCountdown.Show), new[] { typeof(Profile), typeof(DateTime) }), postfix: nameof(CountdownShown));
@@ -255,8 +256,9 @@ namespace ACCESSGRANTED
 
         private static void CancelAvailable(bool available) => TerraOverlay.CanCancel = available;
 
-        private static void CountdownShown(DateTime gameStartTime)
+        private static void CountdownShown(MatchmakerFinalCountdown __instance, DateTime gameStartTime)
         {
+            DeployScene.CountdownShown(__instance);
             float seconds = (float)(gameStartTime - EFT.DateTimeExtensions.Now).TotalSeconds;
             StartupTracker.ReachCountdown(seconds);
             TerraOverlay.Countdown(seconds);
